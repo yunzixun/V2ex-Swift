@@ -7,14 +7,15 @@
 //
 
 import UIKit
+import WebKit
 
-class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate {
+class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate ,V2ActivityViewDataSource {
     var webViewProgress: V2WebViewProgress?
     var webViewProgressView: V2WebViewProgressView?
-    var webView:UIWebView?
+    var webView:WKWebView?
     var closeButton:UIButton?
     
-    private var url:String = ""
+    fileprivate var url:String = ""
     init(url:String){
         super.init(nibName: nil, bundle: nil)
         self.url = url
@@ -28,50 +29,74 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate {
         super.viewDidLoad()
         self.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
         
-        let backbtn = UIButton(type: .Custom)
-        backbtn.setTitle("返回", forState: .Normal)
-        backbtn.frame = CGRectMake(0, 0, 35, 44)
-        backbtn.imageView!.contentMode = .Center;
-        backbtn.setImage(UIImage.imageUsedTemplateMode("ic_keyboard_arrow_left_36pt"), forState: .Normal)
+        let backbtn = UIButton(type: .custom)
+        backbtn.setTitle("返回", for: UIControlState())
+        backbtn.frame = CGRect(x: 0, y: 0, width: 35, height: 44)
+        backbtn.imageView!.contentMode = .center;
+        backbtn.setImage(UIImage.imageUsedTemplateMode("ic_keyboard_arrow_left_36pt"), for: UIControlState())
         backbtn.imageEdgeInsets = UIEdgeInsetsMake(0, -21, 0, 0)
         backbtn.titleEdgeInsets = UIEdgeInsetsMake(0, -31, 0, 0)
         backbtn.titleLabel?.font = v2Font(14)
-        backbtn.setTitleColor(self.navigationController?.navigationBar.tintColor, forState: .Normal)
-        backbtn.contentHorizontalAlignment = .Left
+        backbtn.setTitleColor(self.navigationController?.navigationBar.tintColor, for: UIControlState())
+        backbtn.contentHorizontalAlignment = .left
         
-        backbtn.addTarget(self, action: "back", forControlEvents: .TouchUpInside)
+        backbtn.addTarget(self, action: #selector(V2WebViewViewController.back), for: .touchUpInside)
         
         
-        self.closeButton = UIButton(type: .Custom)
+        self.closeButton = UIButton(type: .custom)
         self.closeButton!.titleEdgeInsets = UIEdgeInsetsMake(0, -3, 0, 0)
-        self.closeButton!.frame = CGRectMake(0, 0, 35, 44)
-        self.closeButton!.setTitle("关闭", forState: .Normal)
-        self.closeButton!.contentHorizontalAlignment = .Left
-        self.closeButton!.setTitleColor(self.navigationController?.navigationBar.tintColor, forState: .Normal)
+        self.closeButton!.frame = CGRect(x: 0, y: 0, width: 35, height: 44)
+        self.closeButton!.setTitle("关闭", for: UIControlState())
+        self.closeButton!.contentHorizontalAlignment = .left
+        self.closeButton!.setTitleColor(self.navigationController?.navigationBar.tintColor, for: UIControlState())
         self.closeButton!.titleLabel?.font = v2Font(14)
-        self.closeButton!.hidden = true
+        self.closeButton!.isHidden = true
         
-        self.closeButton!.addTarget(self, action: "pop", forControlEvents: .TouchUpInside)
+        self.closeButton!.addTarget(self, action: #selector(V2WebViewViewController.pop), for: .touchUpInside)
         
         self.navigationItem.leftBarButtonItems = [UIBarButtonItem(customView: backbtn),UIBarButtonItem(customView: self.closeButton!)]
+        
+        let rightButton = UIButton(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
+        rightButton.contentMode = .center
+        rightButton.imageEdgeInsets = UIEdgeInsetsMake(0, 0, 0, -15)
+        rightButton.setImage(UIImage(named: "ic_more_horiz_36pt")!.withRenderingMode(.alwaysTemplate), for: UIControlState())
+        self.navigationItem.rightBarButtonItem = UIBarButtonItem(customView: rightButton)
+        rightButton.addTarget(self, action: #selector(V2WebViewViewController.rightClick), for: .touchUpInside)
+        
         
         self.webViewProgress = V2WebViewProgress()
         self.webViewProgress!.delegate = self
         
-        self.webView = UIWebView()
+        self.webView = WKWebView()
         self.webView!.backgroundColor = self.view.backgroundColor
-        self.webView!.delegate = self.webViewProgress
         self.view.addSubview(self.webView!)
-        self.webView!.snp_makeConstraints{ (make) -> Void in
+        self.webView!.snp.makeConstraints{ (make) -> Void in
             make.top.right.bottom.left.equalTo(self.view)
         }
         
-        self.webViewProgressView = V2WebViewProgressView(frame: CGRectMake(0, 64, SCREEN_WIDTH, 2))
+        self.webViewProgressView = V2WebViewProgressView(frame: CGRect(x: 0, y: 64, width: SCREEN_WIDTH, height: 2))
         self.view.addSubview(self.webViewProgressView!)
         
-        if let URL = NSURL(string: self.url) {
-            self.webView?.loadRequest(NSURLRequest(URL: URL))
+        if let URL = URL(string: self.url) {
+            _ = self.webView?.load(URLRequest(url: URL))
         }
+        
+        self.webView?.kvoController.observe(self.webView, keyPaths: ["title","estimatedProgress"], options: [.new,.initial], block: {[weak self] (_,_,_) in
+            self?.refreshState()
+        })
+    }
+    
+    private func refreshState(){
+        
+        self.webViewProgressView?.setProgress(Float(self.webView!.estimatedProgress), animated: true)
+        
+        if self.webView!.canGoBack {
+            self.setCloseButtonHidden(false)
+        } else {
+            self.setCloseButtonHidden(true)
+        }
+        
+        self.title = self.webView?.title
     }
     
     func back(){
@@ -79,36 +104,49 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate {
             self.webView!.goBack()
         }
         else {
-            self.navigationController?.popViewControllerAnimated(true)
+            _ = self.navigationController?.popViewController(animated: true)
         }
     }
     func pop(){
-        self.navigationController?.popViewControllerAnimated(true)
+        _ = self.navigationController?.popViewController(animated: true)
     }
     
-    func setCloseButtonHidden(hidden:Bool){
-        self.closeButton!.hidden = hidden
+    func setCloseButtonHidden(_ hidden:Bool){
+        self.closeButton!.isHidden = hidden
         
         var frame = self.closeButton!.frame
         frame.size.width = hidden ? 0 : 35
         self.closeButton!.frame = frame
     }
     
-    func webViewProgress(webViewProgress: V2WebViewProgress, progress: Float) {
-        self.webViewProgressView?.setProgress(progress, animated: true)
-        
-        let str = self.webView!.stringByEvaluatingJavaScriptFromString("document.title");
-        if str?.Lenght > 0{
-            self.title = str
-        }
-        
-        if self.webView!.canGoBack {
-            self.setCloseButtonHidden(false)
-        } else {
-            self.setCloseButtonHidden(true)
-        }
-    }
+
     deinit{
         NSLog("webview deinit")
+    }
+    
+    //MARK: - V2ActivityView
+    func rightClick(){
+        let activityView = V2ActivityViewController()
+        activityView.dataSource = self
+        self.navigationController!.present(activityView, animated: true, completion: nil)
+    }
+    func V2ActivityView(_ activityView: V2ActivityViewController, numberOfCellsInSection section: Int) -> Int {
+        return 1
+    }
+    func V2ActivityView(_ activityView: V2ActivityViewController, ActivityAtIndexPath indexPath: IndexPath) -> V2Activity {
+        return V2Activity(title: ["Safari"][indexPath.row], image: UIImage(named: ["ic_explore_48pt"][indexPath.row])!)
+    }
+    func V2ActivityView(_ activityView: V2ActivityViewController, didSelectRowAtIndexPath indexPath: IndexPath) {
+        activityView.dismiss()
+        if  let url = self.webView?.url {
+            if url.absoluteString.Lenght > 0 {
+                UIApplication.shared.openURL(url)
+                return;
+            }
+        }
+        if let url = URL(string: self.url) {
+            UIApplication.shared.openURL(url)
+        }
+        
     }
 }

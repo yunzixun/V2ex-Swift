@@ -12,10 +12,10 @@ class V2SpacingLabel: UILabel {
     var spacing :CGFloat = 3.0
     override var text: String?{
         set{
-            if newValue?.Lenght > 0 {
+            if let len = newValue?.Lenght, len > 0 {
                 let attributedString = NSMutableAttributedString(string: newValue!);
                 let paragraphStyle = NSMutableParagraphStyle();
-                paragraphStyle.lineBreakMode=NSLineBreakMode.ByTruncatingTail;
+                paragraphStyle.lineBreakMode=NSLineBreakMode.byTruncatingTail;
                 paragraphStyle.lineSpacing=self.spacing;
                 paragraphStyle.alignment=self.textAlignment;
                 attributedString.addAttributes(

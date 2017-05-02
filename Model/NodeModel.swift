@@ -14,22 +14,25 @@ class NodeModel: NSObject ,BaseHtmlModelProtocol{
     var nodeId:String?
     var nodeName:String?
     var width:CGFloat = 0
+    override init() {
+        super.init()
+    }
     required init(rootNode: JiNode) {
         self.nodeName = rootNode.content
         if let nodeName = self.nodeName {
             //计算字符串所占的宽度
             //用于之后这个 node 在 cell 中所占的宽度
-            let rect = (nodeName as NSString).boundingRectWithSize(
-                CGSizeMake(SCREEN_WIDTH, NodeTableViewCell.fontSize),
-                options: .UsesLineFragmentOrigin,
-                attributes: [NSFontAttributeName:v2Font(NodeTableViewCell.fontSize)], context: nil)
+            let rect = (nodeName as NSString).boundingRect(
+                with: CGSize(width: SCREEN_WIDTH,height: 15),
+                options: .usesLineFragmentOrigin,
+                attributes: [NSFontAttributeName:v2Font(15)], context: nil)
             
             self.width = rect.width;
         }
         
         if var href = rootNode["href"] {
-            if let range = href.rangeOfString("/go/") {
-                href.replaceRange(range, with: "");
+            if let range = href.range(of: "/go/") {
+                href.replaceSubrange(range, with: "");
                 self.nodeId = href
             }
         }
@@ -44,55 +47,10 @@ class NodeGroupModel: NSObject ,BaseHtmlModelProtocol{
         for node in rootNode.xPath("./td[2]/a") {
             self.children.append(NodeModel(rootNode: node))
         }
-        self.childrenRows = NodeGroupModel.getShowRows(self.children)
     }
     
-    /**
-     获取节点数据布局
-     
-     - returns: 得到一个节点 占多少行 每行有哪些节点的二维数组
-     */
-    class func getShowRows(nodes:[NodeModel]) -> [[Int]] {
-        
-        var row = 1
-        
-        var rows:[[Int]] = []
-        
-        var tempWidth:CGFloat = 0
-        for var i = 0 ;i < nodes.count ; i++ {
-            
-            if rows.count < row {
-                rows .append([])
-            }
-            
-            let node = nodes[i]
-            if tempWidth == 0 {
-                tempWidth += NodeTableViewCell.leftAndRightSpacing
-            }
-            
-            if tempWidth + node.width + NodeTableViewCell.nodeSpacing > SCREEN_WIDTH - NodeTableViewCell.leftAndRightSpacing
-                && tempWidth > NodeTableViewCell.leftAndRightSpacing {
-                    tempWidth = 0
-                    i--
-                    row++
-                    continue
-            }
-            
-            rows[row-1].append(i)
-            if i == 0 {
-                tempWidth += node.width
-            }
-            else {
-                tempWidth += node.width + NodeTableViewCell.nodeSpacing
-            }
-        }
-        
-        return rows
-    }
-    
-    
-    class func getNodes( completionHandler: (V2ValueResponse<[NodeGroupModel]> -> Void)? = nil ) {
-        Alamofire.request(.GET, V2EXURL, parameters: nil, encoding: .URL, headers: MOBILE_CLIENT_HEADERS).responseJiHtml { (response) in
+    class func getNodes( _ completionHandler: ((V2ValueResponse<[NodeGroupModel]>) -> Void)? = nil ) {
+        Alamofire.request(V2EXURL, headers: MOBILE_CLIENT_HEADERS).responseJiHtml { (response) in
             var groupArray : [NodeGroupModel] = []
             if let jiHtml = response .result.value{
                 if let nodes = jiHtml.xPath("//*[@id='Wrapper']/div/div[@class='box'][last()]/div/table/tr") {

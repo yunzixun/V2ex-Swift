@@ -9,9 +9,26 @@
 import UIKit
 
 class AccountListTableViewCell: UITableViewCell {
-    var avatarImageView:UIImageView?
-    var userNameLabel:UILabel?
-    var usedLabel:UILabel?
+    var avatarImageView:UIImageView = {
+        let avatarImageView = UIImageView()
+        avatarImageView.backgroundColor = UIColor(white: 0.9, alpha: 0.3)
+        avatarImageView.layer.masksToBounds = true
+        avatarImageView.layer.cornerRadius = 22
+        return avatarImageView
+    }()
+    var userNameLabel:UILabel = {
+        let userNameLabel = UILabel()
+        userNameLabel.textColor = V2EXColor.colors.v2_TopicListUserNameColor
+        userNameLabel.font = v2Font(14)
+        return userNameLabel
+    }()
+    var usedLabel:UILabel = {
+        let usedLabel = UILabel()
+        usedLabel.textColor = V2EXColor.colors.v2_NoticePointColor
+        usedLabel.font = v2Font(11)
+        usedLabel.text = NSLocalizedString("current")
+        return usedLabel
+    }()
     override init(style: UITableViewCellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier);
         self.setup();
@@ -21,58 +38,47 @@ class AccountListTableViewCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     func setup()->Void{
-        self.selectionStyle = .None
-        
-        self.avatarImageView = UIImageView()
-        self.avatarImageView!.backgroundColor = UIColor(white: 0.9, alpha: 0.3)
-        self.avatarImageView!.layer.masksToBounds = true
-        self.avatarImageView!.layer.cornerRadius = 22
-        self.contentView.addSubview(self.avatarImageView!)
-        self.avatarImageView!.snp_makeConstraints{ (make) -> Void in
+        self.selectionStyle = .none
+        self.backgroundColor = V2EXColor.colors.v2_CellWhiteBackgroundColor
+
+        self.contentView.addSubview(self.avatarImageView)
+        self.contentView.addSubview(self.userNameLabel)
+        self.contentView.addSubview(self.usedLabel)
+        let separator = UIImageView(image: createImageWithColor(V2EXColor.colors.v2_SeparatorColor))
+        self.contentView.addSubview(separator)
+
+        self.usedLabel.isHidden = true;
+
+        self.avatarImageView.snp.makeConstraints{ (make) -> Void in
             make.left.equalTo(self.contentView).offset(15)
             make.centerY.equalTo(self.contentView)
-            make.width.height.equalTo(self.avatarImageView!.layer.cornerRadius * 2)
+            make.width.height.equalTo(self.avatarImageView.layer.cornerRadius * 2)
         }
-        
-        self.userNameLabel = UILabel()
-        self.userNameLabel!.textColor = V2EXColor.colors.v2_TopicListUserNameColor
-        self.userNameLabel!.font = v2Font(14)
-        self.contentView.addSubview(self.userNameLabel!)
-        self.userNameLabel!.snp_makeConstraints{ (make) -> Void in
-            make.left.equalTo(self.avatarImageView!.snp_right).offset(15)
-            make.centerY.equalTo(self.avatarImageView!)
+        self.userNameLabel.snp.makeConstraints{ (make) -> Void in
+            make.left.equalTo(self.avatarImageView.snp.right).offset(15)
+            make.centerY.equalTo(self.avatarImageView)
         }
-        
-        self.usedLabel = UILabel()
-        self.usedLabel!.textColor = colorWith255RGB(207, g: 70, b: 71)
-        self.usedLabel!.font = v2Font(11)
-        self.usedLabel!.text = "正在使用"
-        self.contentView.addSubview(self.usedLabel!)
-        self.usedLabel!.snp_makeConstraints{ (make) -> Void in
+        self.usedLabel.snp.makeConstraints{ (make) -> Void in
             make.right.equalTo(self.contentView).offset(-15)
-            make.centerY.equalTo(self.avatarImageView!)
+            make.centerY.equalTo(self.avatarImageView)
         }
-        self.usedLabel?.hidden = true;
-        
-        let separator = UIImageView(image: createImageWithColor(colorWith255RGB(190, g: 190, b: 190)))
-        self.contentView.addSubview(separator)
-        separator.snp_makeConstraints{ (make) -> Void in
-            make.left.equalTo(self.avatarImageView!.snp_right).offset(5)
+        separator.snp.makeConstraints{ (make) -> Void in
+            make.left.equalTo(self.avatarImageView.snp.right).offset(5)
             make.right.bottom.equalTo(self.contentView)
             make.height.equalTo(SEPARATOR_HEIGHT)
         }
     }
     
-    func bind(model:LocalSecurityAccountModel) {
-        self.userNameLabel?.text = model.username
-        if let avatar = model.avatar , let url = NSURL(string: avatar) {
-            self.avatarImageView?.kf_setImageWithURL(url)
+    func bind(_ model:LocalSecurityAccountModel) {
+        self.userNameLabel.text = model.username
+        if let avatar = model.avatar , let url = URL(string: avatar) {
+            self.avatarImageView.fin_setImageWithUrl(url)
         }
-        if V2Client.sharedInstance.username == model.username {
-            self.usedLabel?.hidden = false
+        if V2User.sharedInstance.username == model.username {
+            self.usedLabel.isHidden = false
         }
         else {
-            self.usedLabel?.hidden = true
+            self.usedLabel.isHidden = true
         }
     }
 }

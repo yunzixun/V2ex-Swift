@@ -8,52 +8,40 @@
 
 import UIKit
 
-let EMPTY_STRING = "" ;
 
-let SCREEN_WIDTH = UIScreen.mainScreen().bounds.size.width;
-let SCREEN_HEIGHT = UIScreen.mainScreen().bounds.size.height;
-
-let LightBundel = NSBundle(path: NSBundle.mainBundle().pathForResource("Light", ofType: "bundle")!)!
-let DarkBundel = NSBundle(path: NSBundle.mainBundle().pathForResource("Dark", ofType: "bundle")!)!
-let CurrentBundel = LightBundel
+let SCREEN_WIDTH = UIScreen.main.bounds.size.width;
+let SCREEN_HEIGHT = UIScreen.main.bounds.size.height;
 
 //用户代理，使用这个切换是获取 m站点 还是www站数据
 let USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 8_0 like Mac OS X) AppleWebKit/600.1.3 (KHTML, like Gecko) Version/8.0 Mobile/12A4345d Safari/600.1.4";
 let MOBILE_CLIENT_HEADERS = ["user-agent":USER_AGENT]
 
-//CSS配色
-let LIGHT_CSS = try! String(contentsOfFile: LightBundel.pathForResource("style", ofType: "css")!, encoding: NSUTF8StringEncoding)
-let DARK_CSS = try! String(contentsOfFile: DarkBundel.pathForResource("style", ofType: "css")!, encoding: NSUTF8StringEncoding)
 
 //站点地址,客户端只有https,禁用http
 let V2EXURL = "https://www.v2ex.com/"
 
-let SEPARATOR_HEIGHT = 1.0 / UIScreen.mainScreen().scale
+let SEPARATOR_HEIGHT = 1.0 / UIScreen.main.scale
 
-extension UIImage {
-    convenience init? (imageNamed: String){
-        self.init(named: imageNamed, inBundle: CurrentBundel, compatibleWithTraitCollection: nil)
-    }
-    class func imageUsedTemplateMode(named:String) -> UIImage? {
-        let image = UIImage(named: named)
-        if image == nil {
-            return nil
-        }
-        return image!.imageWithRenderingMode(.AlwaysTemplate)
-    }
-}
 
-func NSLocalizedString( key:String ) -> String {
+func NSLocalizedString( _ key:String ) -> String {
     return NSLocalizedString(key, comment: "")
 }
 
 
-func dispatch_sync_safely_main_queue(block: ()->()) {
-    if NSThread.isMainThread() {
+func dispatch_sync_safely_main_queue(_ block: ()->()) {
+    if Thread.isMainThread {
         block()
     } else {
-        dispatch_sync(dispatch_get_main_queue()) {
+        DispatchQueue.main.sync {
             block()
         }
     }
+}
+
+func v2Font(_ fontSize: CGFloat) -> UIFont {
+    return UIFont.systemFont(ofSize: fontSize);
+}
+
+func v2ScaleFont(_ fontSize: CGFloat) -> UIFont{
+    return v2Font(fontSize * CGFloat(V2Style.sharedInstance.fontScale))
 }

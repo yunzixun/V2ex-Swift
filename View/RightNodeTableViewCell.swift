@@ -10,36 +10,54 @@ import UIKit
 
 class RightNodeTableViewCell: UITableViewCell {
 
-    var nodeNameLabel: UILabel?
+    var nodeNameLabel: UILabel = {
+        let label = UILabel()
+        label.font = v2Font(15)
+        return label
+    }()
+    
+    var panel = UIView()
     
     override init(style: UITableViewCellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier);
+        
         self.setup();
     }
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
     func setup()->Void{
-        self.selectionStyle = .None
-        self.backgroundColor = UIColor.clearColor()
+        self.selectionStyle = .none
+        self.backgroundColor = UIColor.clear
         
-        let panel = UIView()
-        panel.backgroundColor = UIColor(white: 1, alpha: 0.3)
         self.contentView.addSubview(panel)
-        panel.snp_makeConstraints{ (make) -> Void in
+        self.panel.snp.makeConstraints{ (make) -> Void in
             make.left.top.right.equalTo(self.contentView)
-            make.height.equalTo(55)
+            make.bottom.equalTo(self.contentView).offset(-1 * SEPARATOR_HEIGHT)
         }
         
-        self.nodeNameLabel = UILabel()
-        self.nodeNameLabel!.font = v2Font(16)
-        self.nodeNameLabel!.textColor = V2EXColor.colors.v2_TopicListUserNameColor
-        panel.addSubview(self.nodeNameLabel!)
-        self.nodeNameLabel!.snp_makeConstraints{ (make) -> Void in
-            make.right.equalTo(panel).offset(-25)
+        panel.addSubview(self.nodeNameLabel)
+        self.nodeNameLabel.snp.makeConstraints{ (make) -> Void in
+            make.right.equalTo(panel).offset(-22)
             make.centerY.equalTo(panel)
         }
+        
+        self.thmemChangedHandler = {[weak self] (style) -> Void in
+            self?.refreshBackgroundColor()
+            self?.nodeNameLabel.textColor = V2EXColor.colors.v2_LeftNodeTintColor
+        }
     }
-
-
+    
+    override func setSelected(_ selected: Bool, animated: Bool) {
+        super.setSelected(selected, animated: animated);        
+        self.refreshBackgroundColor()
+    }
+    func refreshBackgroundColor() {
+        if self.isSelected {
+            self.panel.backgroundColor = V2EXColor.colors.v2_LeftNodeBackgroundHighLightedColor
+        }
+        else{
+            self.panel.backgroundColor = V2EXColor.colors.v2_LeftNodeBackgroundColor
+        }
+    }
 }

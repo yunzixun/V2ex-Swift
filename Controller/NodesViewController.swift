@@ -7,108 +7,83 @@
 //
 
 import UIKit
-class NodesViewController: BaseViewController,UITableViewDelegate,UITableViewDataSource {
+class NodesViewController: BaseViewController {
     var nodeGroupArray:[NodeGroupModel]?
-    
-    private var headerView:[UILabel]? = []
-    
-    private var _tableView :UITableView!
-    private var tableView: UITableView {
-        get{
-            if(_tableView != nil){
-                return _tableView!;
-            }
-            _tableView = UITableView();
-            _tableView.backgroundColor = V2EXColor.colors.v2_backgroundColor
-            _tableView.estimatedRowHeight=100;
-            _tableView.separatorStyle = UITableViewCellSeparatorStyle.None;
-            
-            regClass(_tableView, cell: NodeTableViewCell.self);
-            
-            _tableView.delegate = self;
-            _tableView.dataSource = self;
-            return _tableView!;
-            
-        }
-    }
-    
+    var collectionView:UICollectionView?
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.title = "节点导航"
+        self.title = NSLocalizedString("Navigation")
         self.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
-        self.view.addSubview(self.tableView);
-        self.tableView.snp_makeConstraints{ (make) -> Void in
-            make.top.bottom.equalTo(self.view);
-            make.center.equalTo(self.view);
-            make.width.equalTo(SCREEN_WIDTH)
-        }
         
+        let layout = V2LeftAlignedCollectionViewFlowLayout();
+        layout.sectionInset = UIEdgeInsetsMake(10, 15, 10, 15);
+        self.collectionView = UICollectionView(frame: self.view.bounds, collectionViewLayout: layout)
+        self.collectionView?.backgroundColor = V2EXColor.colors.v2_CellWhiteBackgroundColor
+        self.collectionView!.dataSource = self
+        self.collectionView!.delegate = self
+        self.view.addSubview(self.collectionView!)
         
+        self.collectionView!.register(NodeTableViewCell.self, forCellWithReuseIdentifier: "cell")
+        self.collectionView!.register(NodeCollectionReusableView.self, forSupplementaryViewOfKind: UICollectionElementKindSectionHeader, withReuseIdentifier: "nodeGroupNameView")
+    
         NodeGroupModel.getNodes { (response) -> Void in
             if response.success {
                 self.nodeGroupArray = response.value
-                self.tableView.reloadData()
+                self.collectionView?.reloadData()
             }
             self.hideLoadingView()
         }
-        
         self.showLoadingView()
     }
-    
-    func numberOfSectionsInTableView(tableView: UITableView) -> Int {
-        if let array = self.nodeGroupArray {
-            return array.count
+}
+
+
+//MARK: - UICollectionViewDataSource
+extension NodesViewController : UICollectionViewDataSource {
+    func numberOfSections(in collectionView: UICollectionView) -> Int {
+        if let count = self.nodeGroupArray?.count{
+            return count
         }
         return 0
     }
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return self.nodeGroupArray![section].childrenRows.count
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return self.nodeGroupArray![section].children.count
     }
-    func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
-        return 45
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let nodeModel = self.nodeGroupArray![indexPath.section].children[indexPath.row]
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as! NodeTableViewCell;
+        cell.textLabel.text = nodeModel.nodeName
+        return cell;
     }
-    func tableView(tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return 35
+    func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
+        let nodeGroupNameView = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "nodeGroupNameView", for: indexPath)
+        (nodeGroupNameView as! NodeCollectionReusableView).label.text = self.nodeGroupArray![indexPath.section].groupName
+        return nodeGroupNameView
     }
-    
-    func tableView(tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        var label:UILabel?
-        if self.headerView?.count > section {
-            label = self.headerView![section]
-        }
-        else {
-            label = UILabel()
-            label?.font = v2Font(16)
-            label?.textColor = V2EXColor.colors.v2_TopicListTitleColor
-            label?.backgroundColor = V2EXColor.colors.v2_backgroundColor
-        }
-        if let name = self.nodeGroupArray![section].groupName {
-            label?.text =  "    " + name
-        }
-        return label
-            
-    }
-    
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        
-        
-        let group = self.nodeGroupArray![indexPath.section]
-        let rows = group.childrenRows[indexPath.row]
+}
 
-        var nodes:[NodeModel] = []
-        
-        for var i = rows.first! ; i <= rows.last! ; i++ {
-            nodes.append(group.children[i])
-        }
-        
-        //同数量的node 使用同一组cell，省的浪费label
-        let identity = "NodeTableViewCell" + "\(rows.count)"
-        var cell = tableView.dequeueReusableCellWithIdentifier(identity) as? NodeTableViewCell
-        if cell == nil {
-            cell = NodeTableViewCell(style: .Default, reuseIdentifier: identity)
-        }
-        cell!.bind(nodes)
-        return cell!
+
+//MARK: - UICollectionViewDelegateFlowLayout
+extension NodesViewController : UICollectionViewDelegateFlowLayout {
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        let nodeModel = self.nodeGroupArray![indexPath.section].children[indexPath.row]
+        return CGSize(width: nodeModel.width, height: 25);
     }
-    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat{
+        return 15
+    }
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
+        return CGSize(width: collectionView.bounds.size.width, height: 35);
+    }
+}
+
+
+//MARK: - UICollectionViewDelegate
+extension NodesViewController : UICollectionViewDelegate {
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath){
+        let nodeModel = self.nodeGroupArray![indexPath.section].children[indexPath.row]
+        let controller = NodeTopicListViewController()
+        controller.node = nodeModel
+        V2Client.sharedInstance.centerNavigation?.pushViewController(controller, animated: true)
+    }
 }

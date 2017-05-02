@@ -10,18 +10,18 @@ import UIKit
 import MJRefresh
 class NotificationsViewController: BaseViewController,UITableViewDataSource,UITableViewDelegate {
 
-    private var notificationsArray:[NotificationsModel] = []
+    fileprivate var notificationsArray:[NotificationsModel] = []
     
-    private var _tableView :UITableView!
-    private var tableView: UITableView {
+    fileprivate var _tableView :UITableView!
+    fileprivate var tableView: UITableView {
         get{
             if(_tableView != nil){
                 return _tableView!;
             }
             _tableView = UITableView();
-            _tableView.backgroundColor = UIColor.clearColor()
+            _tableView.backgroundColor = UIColor.clear
             _tableView.estimatedRowHeight=100;
-            _tableView.separatorStyle = UITableViewCellSeparatorStyle.None;
+            _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
             regClass(_tableView, cell: NotificationTableViewCell.self)
             
@@ -36,10 +36,10 @@ class NotificationsViewController: BaseViewController,UITableViewDataSource,UITa
     override func viewDidLoad() {
         super.viewDidLoad()
         self.view.addSubview(self.tableView);
-        self.title = "通知"
+        self.title = NSLocalizedString("notifications")
         self.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
         
-        self.tableView.snp_makeConstraints{ (make) -> Void in
+        self.tableView.snp.makeConstraints{ (make) -> Void in
             make.top.right.bottom.left.equalTo(self.view);
         }
 
@@ -66,35 +66,37 @@ class NotificationsViewController: BaseViewController,UITableViewDataSource,UITa
         }
     }
     
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return self.notificationsArray.count
     }
-    func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return tableView.fin_heightForCellWithIdentifier(NotificationTableViewCell.self, indexPath: indexPath) { (cell) -> Void in
             cell.bind(self.notificationsArray[indexPath.row]);
         }
     }
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = getCell(tableView, cell: NotificationTableViewCell.self, indexPath: indexPath)
         cell.bind(self.notificationsArray[indexPath.row])
-        if cell.replyButton?.allTargets().count <= 0 {
-            cell.replyButton?.addTarget(self, action: Selector("replyClick:"), forControlEvents: .TouchUpInside)
+        cell.replyButton.tag = indexPath.row
+        if cell.replyButtonClickHandler == nil {
+            cell.replyButtonClickHandler = { [weak self] (sender) in
+                self?.replyClick(sender)
+            }
         }
-        cell.replyButton?.tag = indexPath.row
         return cell
     }
     
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let item = self.notificationsArray[indexPath.row]
         if let id = item.topicId {
             let topicDetailController = TopicDetailViewController();
             topicDetailController.topicId = id ;
             self.navigationController?.pushViewController(topicDetailController, animated: true)
-            tableView .deselectRowAtIndexPath(indexPath, animated: true);
+            tableView .deselectRow(at: indexPath, animated: true);
         }
     }
 
-    func replyClick(sender:UIButton) {
+    func replyClick(_ sender:UIButton) {
         let item = self.notificationsArray[sender.tag]
 
         let replyViewController = ReplyingViewController()
@@ -105,7 +107,7 @@ class NotificationsViewController: BaseViewController,UITableViewDataSource,UITa
         replyViewController.topicModel = tempTopicModel
         
         let nav = V2EXNavigationController(rootViewController:replyViewController)
-        self.navigationController?.presentViewController(nav, animated: true, completion:nil)
+        self.navigationController?.present(nav, animated: true, completion:nil)
     }
     
 }

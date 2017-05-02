@@ -9,17 +9,19 @@
 import UIKit
 
 class FavoritesViewController: BaseViewController,UITableViewDataSource,UITableViewDelegate {
-    var topicList:Array<TopicListModel>?
-    private var _tableView :UITableView!
-    private var tableView: UITableView {
+    var topicList:[TopicListModel]?
+    var currentPage = 1
+    //最大的Page
+    var maxPage = 1
+    fileprivate var _tableView :UITableView!
+    fileprivate var tableView: UITableView {
         get{
             if(_tableView != nil){
                 return _tableView!;
             }
             _tableView = UITableView();
             _tableView.backgroundColor = V2EXColor.colors.v2_backgroundColor
-            _tableView.estimatedRowHeight=200;
-            _tableView.separatorStyle = UITableViewCellSeparatorStyle.None;
+            _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
             regClass(_tableView, cell: HomeTopicListTableViewCell.self)
             
@@ -32,10 +34,10 @@ class FavoritesViewController: BaseViewController,UITableViewDataSource,UITableV
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.title = "我的收藏"
+        self.title = NSLocalizedString("favorites")
         self.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
         self.view.addSubview(self.tableView);
-        self.tableView.snp_makeConstraints{ (make) -> Void in
+        self.tableView.snp.makeConstraints{ (make) -> Void in
             make.top.right.bottom.left.equalTo(self.view);
         }
         
@@ -45,16 +47,25 @@ class FavoritesViewController: BaseViewController,UITableViewDataSource,UITableV
             self?.refresh()
         })
         self.tableView.mj_header.beginRefreshing()
+        
+        let footer = V2RefreshFooter(refreshingBlock: {[weak self] () -> Void in
+            self?.getNextPage()
+            })
+        footer?.centerOffset = -4
+        self.tableView.mj_footer = footer
     }
     
     func refresh(){
         //根据 tab name 获取帖子列表
+        self.currentPage = 1
         TopicListModel.getFavoriteList{
-            [weak self](response:V2ValueResponse<[TopicListModel]>) -> Void in
+            [weak self](response) -> Void in
             if response.success {
-                if let weakSelf = self {
-                    weakSelf.topicList = response.value
-                    weakSelf.tableView.fin_reloadData()
+                if let weakSelf = self , let list = response.value?.0 , let maxPage = response.value?.1{
+                    weakSelf.topicList = list
+                    weakSelf.maxPage = maxPage
+                    weakSelf.tableView.mj_footer.resetNoMoreData()
+                    weakSelf.tableView.reloadData()
                 }
             }
             self?.tableView.mj_header.endRefreshing()
@@ -62,34 +73,59 @@ class FavoritesViewController: BaseViewController,UITableViewDataSource,UITableV
             self?.hideLoadingView()
         }
     }
+    func getNextPage(){
+        if let count = self.topicList?.count, count <= 0 {
+            self.tableView.mj_footer.endRefreshing()
+            return;
+        }
+        if self.currentPage >= maxPage {
+            self.tableView.mj_footer.endRefreshingWithNoMoreData()
+            return;
+        }
+        self.currentPage += 1
+        TopicListModel.getFavoriteList(self.currentPage) {[weak self] (response) -> Void in
+            if response.success {
+                if let weakSelf = self ,let list = response.value?.0 {
+                    weakSelf.topicList! += list
+                    weakSelf.tableView.reloadData()
+                }
+                else{
+                    self?.currentPage -= 1
+                }
+            }
+            self?.tableView.mj_footer.endRefreshing()
+        }
+    }
     
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         if let list = self.topicList {
             return list.count;
         }
         return 0;
     }
     
-    func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
-        return tableView.fin_heightForCellWithIdentifier(HomeTopicListTableViewCell.self, indexPath: indexPath) { (cell) -> Void in
-            cell.bind(self.topicList![indexPath.row]);
-        }
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        let item = self.topicList![indexPath.row]
+        let titleHeight = item.topicTitleLayout?.textBoundingRect.size.height ?? 0
+        //          上间隔   头像高度  头像下间隔       标题高度    标题下间隔 cell间隔
+        let height = 12    +  35     +  12      + titleHeight   + 12      + 8
+        return height
     }
     
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = getCell(tableView, cell: HomeTopicListTableViewCell.self, indexPath: indexPath);
         cell.bind(self.topicList![indexPath.row]);
         return cell;
     }
     
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let item = self.topicList![indexPath.row]
         
         if let id = item.topicId {
             let topicDetailController = TopicDetailViewController();
             topicDetailController.topicId = id ;
             self.navigationController?.pushViewController(topicDetailController, animated: true)
-            tableView .deselectRowAtIndexPath(indexPath, animated: true);
+            tableView .deselectRow(at: indexPath, animated: true);
         }
     }
 }

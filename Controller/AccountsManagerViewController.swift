@@ -7,13 +7,12 @@
 //
 
 import UIKit
-import SVProgressHUD
 
 /// 多账户管理
 class AccountsManagerViewController: UIViewController,UITableViewDataSource,UITableViewDelegate,UIAlertViewDelegate {
-    private var users:[LocalSecurityAccountModel] = []
-    private var _tableView :UITableView!
-    private var tableView: UITableView {
+    fileprivate var users:[LocalSecurityAccountModel] = []
+    fileprivate var _tableView :UITableView!
+    fileprivate var tableView: UITableView {
         get{
             if(_tableView != nil){
                 return _tableView!;
@@ -21,54 +20,54 @@ class AccountsManagerViewController: UIViewController,UITableViewDataSource,UITa
             _tableView = UITableView();
             _tableView.backgroundColor = V2EXColor.colors.v2_backgroundColor
             _tableView.estimatedRowHeight=100;
-            _tableView.separatorStyle = UITableViewCellSeparatorStyle.None;
-            
+            _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
+
             regClass(_tableView, cell: BaseDetailTableViewCell.self);
             regClass(_tableView, cell: AccountListTableViewCell.self);
             regClass(_tableView, cell: LogoutTableViewCell.self)
-            
+
             _tableView.delegate = self;
             _tableView.dataSource = self;
             return _tableView!;
-            
+
         }
     }
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.title = "账户"
+        self.title = NSLocalizedString("accounts")
         self.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
-        
-        let warningButton = UIButton(frame: CGRectMake(0, 0, 40, 40))
-        warningButton.contentMode = .Center
+
+        let warningButton = UIButton(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
+        warningButton.contentMode = .center
         warningButton.imageEdgeInsets = UIEdgeInsetsMake(0, 0, 0, -20)
-        warningButton.setImage(UIImage.imageUsedTemplateMode("ic_warning")!.imageWithRenderingMode(.AlwaysTemplate), forState: .Normal)
+        warningButton.setImage(UIImage.imageUsedTemplateMode("ic_warning")!.withRenderingMode(.alwaysTemplate), for: UIControlState())
         self.navigationItem.rightBarButtonItem = UIBarButtonItem(customView: warningButton)
-        warningButton.addTarget(self, action: Selector("warningClick"), forControlEvents: .TouchUpInside)
-        
+        warningButton.addTarget(self, action: #selector(AccountsManagerViewController.warningClick), for: .touchUpInside)
+
         self.view.addSubview(self.tableView);
         self.tableView.contentInset = UIEdgeInsetsMake(20, 0, 0, 0)
-        self.tableView.snp_makeConstraints{ (make) -> Void in
+        self.tableView.snp.makeConstraints{ (make) -> Void in
             make.top.bottom.equalTo(self.view);
             make.center.equalTo(self.view);
             make.width.equalTo(SCREEN_WIDTH)
         }
-        
+
         for (_,user) in V2UsersKeychain.sharedInstance.users {
             self.users.append(user)
         }
-        
+
     }
 
     func warningClick(){
-        let alertView = UIAlertView(title: "临时隐私声明", message: "当你登陆时，软件会自动将你的账号与密码保存于系统的Keychain中（非常安全）。如果你不希望软件保存你的账号与密码，可以左滑账号并点击删除。\n后续会完善隐私声明页面，并添加 关闭保存账号密码机制 的选项。\n但我强烈推荐你不要关闭，因为这个会帮助你【登陆过期自动重连】、或者【切换多账号】", delegate: nil, cancelButtonTitle: "我知道了")
+        let alertView = UIAlertView(title: "临时隐私声明", message: "当你登录时，软件会自动将你的账号与密码保存于系统的Keychain中（非常安全）。如果你不希望软件保存你的账号与密码，可以左滑账号并点击删除。\n后续会完善隐私声明页面，并添加 关闭保存账号密码机制 的选项。\n但我强烈推荐你不要关闭，因为这个会帮助你【登录过期自动重连】、或者【切换多账号】", delegate: nil, cancelButtonTitle: "我知道了")
         alertView.show()
     }
-    
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         //     账户数量            分割线   退出登录按钮
         return self.users.count   + 1       + 1
     }
-    func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         if indexPath.row < self.users.count {
             return 55
         }
@@ -79,7 +78,7 @@ class AccountsManagerViewController: UIViewController,UITableViewDataSource,UITa
             return 45
         }
     }
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         if indexPath.row < self.users.count {
             let cell = getCell(tableView, cell: AccountListTableViewCell.self, indexPath: indexPath)
             cell.bind(self.users[indexPath.row])
@@ -95,31 +94,31 @@ class AccountsManagerViewController: UIViewController,UITableViewDataSource,UITa
             return getCell(tableView, cell: LogoutTableViewCell.self, indexPath: indexPath)
         }
     }
-    func tableView(tableView: UITableView, canEditRowAtIndexPath indexPath: NSIndexPath) -> Bool {
-        
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+
         if indexPath.row < self.users.count{
             return true
         }
         return false
     }
-    func tableView(tableView: UITableView, commitEditingStyle editingStyle: UITableViewCellEditingStyle, forRowAtIndexPath indexPath: NSIndexPath) {
-        if editingStyle == .Delete {
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
             if let username = self.users[indexPath.row].username {
-                self.users.removeAtIndex(indexPath.row)
+                self.users.remove(at: indexPath.row)
                 V2UsersKeychain.sharedInstance.removeUser(username)
-                tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .None)
+                tableView.deleteRows(at: [indexPath], with: .none)
             }
         }
     }
-    
-    
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
-        self.tableView.deselectRowAtIndexPath(indexPath, animated: true)
-        
+
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        self.tableView.deselectRow(at: indexPath, animated: true)
+
         let totalNumOfRows = self.tableView(tableView, numberOfRowsInSection: 0)
         if indexPath.row < self.users.count {
             let user = self.users[indexPath.row]
-            if user.username == V2Client.sharedInstance.username {
+            if user.username == V2User.sharedInstance.username {
                 return;
             }
             let alertView = UIAlertView(title: "确定切换到账号 " + user.username! + " 吗?", message: "无论新账号是否登录成功，都会注销当前账号。", delegate: self, cancelButtonTitle: "取消", otherButtonTitles: "确定")
@@ -135,41 +134,45 @@ class AccountsManagerViewController: UIViewController,UITableViewDataSource,UITa
             alertView.show()
         }
     }
-    func alertView(alertView: UIAlertView, clickedButtonAtIndex buttonIndex: Int){
+    func alertView(_ alertView: UIAlertView, clickedButtonAt buttonIndex: Int){
         if alertView.tag > 100000 { //切换账号的alertView
             if buttonIndex == 0 {
                 return
             }
-            V2Client.sharedInstance.loginOut()
+            V2User.sharedInstance.loginOut()
             self.tableView.reloadData()
-            
+
             let user = self.users[alertView.tag - 100001]
-            
+
             if let username = user.username,let password = user.password {
-                SVProgressHUD.showWithStatus("正在登陆")
+                V2BeginLoadingWithStatus("正在登录")
                 UserModel.Login(username, password: password){
-                    (response:V2ValueResponse<String>) -> Void in
+                    (response:V2ValueResponse<String> , is2FALoggedIn:Bool) -> Void in
                     if response.success {
-                        SVProgressHUD.showSuccessWithStatus("登陆成功")
+                        V2Success("登录成功")
                         let username = response.value!
-                        NSLog("登陆成功 %@",username)
+                        NSLog("登录成功 %@",username)
                         //保存下用户名
                         V2EXSettings.sharedInstance[kUserName] = username
                         //获取用户信息
                         UserModel.getUserInfoByUsername(username, completionHandler: { (response) -> Void in
                             self.tableView.reloadData()
                         })
+                        if is2FALoggedIn {
+                            let twoFaViewController = TwoFAViewController()
+                            V2Client.sharedInstance.centerViewController!.navigationController?.present(twoFaViewController, animated: true, completion: nil);
+                        }
                     }
                     else{
-                        SVProgressHUD.showErrorWithStatus(response.message)
+                        V2Error(response.message)
                     }
                 }
             }
         }
         else { //注销登录的alertView
             if buttonIndex == 1 {
-                V2Client.sharedInstance.loginOut()
-                self.navigationController?.popToRootViewControllerAnimated(true)
+                V2User.sharedInstance.loginOut()
+                self.navigationController?.popToRootViewController(animated: true)
             }
         }
     }

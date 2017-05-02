@@ -12,17 +12,18 @@ import FXBlurView
 class LeftViewController: UIViewController,UITableViewDataSource,UITableViewDelegate {
 
     var backgroundImageView:UIImageView?
+    var frostedView = FXBlurView()
     
-    private var _tableView :UITableView!
-    private var tableView: UITableView {
+    fileprivate var _tableView :UITableView!
+    fileprivate var tableView: UITableView {
         get{
             if(_tableView != nil){
                 return _tableView!;
             }
             _tableView = UITableView();
-            _tableView.backgroundColor = UIColor.clearColor()
+            _tableView.backgroundColor = UIColor.clear
             _tableView.estimatedRowHeight=100;
-            _tableView.separatorStyle = UITableViewCellSeparatorStyle.None;
+            _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
             regClass(self.tableView, cell: LeftUserHeadCell.self)
             regClass(self.tableView, cell: LeftNodeTableViewCell.self)
@@ -39,35 +40,42 @@ class LeftViewController: UIViewController,UITableViewDataSource,UITableViewDele
         super.viewDidLoad()
         self.view.backgroundColor = V2EXColor.colors.v2_backgroundColor;
         
-        self.backgroundImageView = UIImageView(image: UIImage(named: "32.jpg"))
+        self.backgroundImageView = UIImageView()
         self.backgroundImageView!.frame = self.view.frame
-        self.backgroundImageView!.contentMode = .ScaleToFill
+        self.backgroundImageView!.contentMode = .scaleToFill
         view.addSubview(self.backgroundImageView!)
         
-        let frostedView = FXBlurView()
         frostedView.underlyingView = self.backgroundImageView!
-        frostedView.dynamic = false
+        frostedView.isDynamic = false
+        frostedView.tintColor = UIColor.black
         frostedView.frame = self.view.frame
         self.view.addSubview(frostedView)
         
         self.view.addSubview(self.tableView);
-        self.tableView.snp_makeConstraints{ (make) -> Void in
+        self.tableView.snp.makeConstraints{ (make) -> Void in
             make.top.right.bottom.left.equalTo(self.view);
         }
         
-        if V2Client.sharedInstance.isLogin {
-            self.getUserInfo(V2Client.sharedInstance.username!)
+        if V2User.sharedInstance.isLogin {
+            self.getUserInfo(V2User.sharedInstance.username!)
         }
-
-        
+        self.thmemChangedHandler = {[weak self] (style) -> Void in
+            if V2EXColor.sharedInstance.style == V2EXColor.V2EXColorStyleDefault {
+                self?.backgroundImageView?.image = UIImage(named: "32.jpg")
+            }
+            else{
+                self?.backgroundImageView?.image = UIImage(named: "12.jpg")
+            }
+            self?.frostedView.updateAsynchronously(true, completion: nil)
+        }
     }
-    func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+    func numberOfSections(in tableView: UITableView) -> Int {
         return 3
     }
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return [1,3,2][section]
     }
-    func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         if (indexPath.section == 1 && indexPath.row == 2)
         
         {
@@ -75,7 +83,7 @@ class LeftViewController: UIViewController,UITableViewDataSource,UITableViewDele
         }
         return [180,55+SEPARATOR_HEIGHT,55+SEPARATOR_HEIGHT][indexPath.section]
     }
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         if indexPath.section == 0 {
             if  indexPath.row == 0 {
                 let cell = getCell(tableView, cell: LeftUserHeadCell.self, indexPath: indexPath);
@@ -88,41 +96,48 @@ class LeftViewController: UIViewController,UITableViewDataSource,UITableViewDele
         else if (indexPath.section == 1) {
             if indexPath.row == 1 {
                 let cell = getCell(tableView, cell: LeftNotifictionCell.self, indexPath: indexPath)
-                cell.nodeImageView!.image = UIImage.imageUsedTemplateMode("ic_notifications_none")
+                cell.nodeImageView.image = UIImage.imageUsedTemplateMode("ic_notifications_none")
                 return cell
             }
             else {
                 let cell = getCell(tableView, cell: LeftNodeTableViewCell.self, indexPath: indexPath)
-                cell.nodeNameLabel!.text = ["个人中心","","我的收藏"][indexPath.row]
+                cell.nodeNameLabel.text = [NSLocalizedString("me"),"",NSLocalizedString("favorites")][indexPath.row]
                 let names = ["ic_face","","ic_turned_in_not"]
-                cell.nodeImageView!.image = UIImage.imageUsedTemplateMode(names[indexPath.row])
+                cell.nodeImageView.image = UIImage.imageUsedTemplateMode(names[indexPath.row])
                 return cell
             }
         }
         else {
             let cell = getCell(tableView, cell: LeftNodeTableViewCell.self, indexPath: indexPath)
-            cell.nodeNameLabel!.text = ["节点","更多"][indexPath.row]
+            cell.nodeNameLabel.text = [NSLocalizedString("nodes"),NSLocalizedString("more")][indexPath.row]
             let names = ["ic_navigation","ic_settings_input_svideo"]
-            cell.nodeImageView!.image = UIImage.imageUsedTemplateMode(names[indexPath.row])
+            cell.nodeImageView.image = UIImage.imageUsedTemplateMode(names[indexPath.row])
             return cell
         }
     }
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         if indexPath.section == 0 {
             if indexPath.row == 0 {
-                let loginViewController = LoginViewController()
-                V2Client.sharedInstance.centerViewController!.navigationController?.presentViewController(loginViewController, animated: true, completion: nil);
+                if !V2User.sharedInstance.isLogin {
+                    let loginViewController = LoginViewController()
+                    V2Client.sharedInstance.centerViewController!.navigationController?.present(loginViewController, animated: true, completion: nil);
+                }else{
+                    let memberViewController = MyCenterViewController()
+                    memberViewController.username = V2User.sharedInstance.username
+                    V2Client.sharedInstance.centerNavigation?.pushViewController(memberViewController, animated: true)
+                    V2Client.sharedInstance.drawerController?.closeDrawer(animated: true, completion: nil)
+                }
             }
         }
         else if indexPath.section == 1 {
-            if !V2Client.sharedInstance.isLogin {
+            if !V2User.sharedInstance.isLogin {
                 let loginViewController = LoginViewController()
-                V2Client.sharedInstance.centerNavigation?.presentViewController(loginViewController, animated: true, completion: nil);
+                V2Client.sharedInstance.centerNavigation?.present(loginViewController, animated: true, completion: nil);
                 return
             }
             if indexPath.row == 0 {
                 let memberViewController = MyCenterViewController()
-                memberViewController.username = V2Client.sharedInstance.username
+                memberViewController.username = V2User.sharedInstance.username
                 V2Client.sharedInstance.centerNavigation?.pushViewController(memberViewController, animated: true)
             }
             else if indexPath.row == 1 {
@@ -133,7 +148,7 @@ class LeftViewController: UIViewController,UITableViewDataSource,UITableViewDele
                 let favoritesViewController = FavoritesViewController()
                 V2Client.sharedInstance.centerNavigation?.pushViewController(favoritesViewController, animated: true)
             }
-            V2Client.sharedInstance.drawerController?.closeDrawerAnimated(true, completion: nil)
+            V2Client.sharedInstance.drawerController?.closeDrawer(animated: true, completion: nil)
             
         }
         else if indexPath.section == 2 {
@@ -145,16 +160,14 @@ class LeftViewController: UIViewController,UITableViewDataSource,UITableViewDele
                 let moreViewController = MoreViewController()
                 V2Client.sharedInstance.centerViewController!.navigationController?.pushViewController(moreViewController, animated: true)
             }
-            V2Client.sharedInstance.drawerController?.closeDrawerAnimated(true, completion: nil)
+            V2Client.sharedInstance.drawerController?.closeDrawer(animated: true, completion: nil)
         }
     }
     
     
     
-    /**
-     获取用户信息
-     */
-    func getUserInfo(userName:String){
+    // MARK: 获取用户信息
+    func getUserInfo(_ userName:String){
         UserModel.getUserInfoByUsername(userName) {(response:V2ValueResponse<UserModel>) -> Void in
             if response.success {
 //                self?.tableView.reloadData()

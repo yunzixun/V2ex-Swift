@@ -7,24 +7,26 @@
 //
 
 import UIKit
-import SVProgressHUD
-class TopicDetailViewController: BaseViewController, UITableViewDelegate,UITableViewDataSource ,UIActionSheetDelegate{
 
-    var topicId = "0"
-    private var model:TopicDetailModel?
-    private var commentsArray:[TopicCommentModel] = []
-    private var webViewContentCell:TopicDetailWebViewContentCell?
+class TopicDetailViewController: BaseViewController{
     
-    private var _tableView :UITableView!
-    private var tableView: UITableView {
+    var topicId = "0"
+    var currentPage = 1
+    
+    fileprivate var model:TopicDetailModel?
+    fileprivate var commentsArray:[TopicCommentModel] = []
+    fileprivate var webViewContentCell:TopicDetailWebViewContentCell?
+    
+    fileprivate var _tableView :UITableView!
+    fileprivate var tableView: UITableView {
         get{
             if(_tableView != nil){
                 return _tableView!;
             }
             _tableView = UITableView();
-            _tableView.estimatedRowHeight=200;
-            _tableView.separatorStyle = UITableViewCellSeparatorStyle.None;
+            _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
+            _tableView.backgroundColor = V2EXColor.colors.v2_backgroundColor
             regClass(_tableView, cell: TopicDetailHeaderCell.self)
             regClass(_tableView, cell: TopicDetailWebViewContentCell.self)
             regClass(_tableView, cell: TopicDetailCommentCell.self)
@@ -36,24 +38,42 @@ class TopicDetailViewController: BaseViewController, UITableViewDelegate,UITable
             
         }
     }
+    /// 忽略帖子成功后 ，调用的闭包
+    var ignoreTopicHandler : ((String) -> Void)?
+    //点击右上角more按钮后，弹出的 activityView
+    //只在activityView 显示在屏幕上持有它，如果activityView释放了，这里也一起释放。
+    fileprivate weak var activityView:V2ActivityViewController?
     
-    
+    //MARK: - 页面事件
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.title = "帖子详情"
+        self.title = NSLocalizedString("postDetails")
         self.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
         self.view.addSubview(self.tableView);
-        self.tableView.snp_makeConstraints{ (make) -> Void in
+        self.tableView.snp.makeConstraints{ (make) -> Void in
             make.top.right.bottom.left.equalTo(self.view);
         }
         
-        let rightButton = UIButton(frame: CGRectMake(0, 0, 40, 40))
-        rightButton.contentMode = .Center
+        let rightButton = UIButton(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
+        rightButton.contentMode = .center
         rightButton.imageEdgeInsets = UIEdgeInsetsMake(0, 0, 0, -15)
-        rightButton.setImage(UIImage(named: "ic_speaker_notes")!.imageWithRenderingMode(.AlwaysTemplate), forState: .Normal)
+        rightButton.setImage(UIImage(named: "ic_more_horiz_36pt")!.withRenderingMode(.alwaysTemplate), for: UIControlState())
         self.navigationItem.rightBarButtonItem = UIBarButtonItem(customView: rightButton)
-        rightButton.addTarget(self, action: Selector("rightClick"), forControlEvents: .TouchUpInside)
+        rightButton.addTarget(self, action: #selector(TopicDetailViewController.rightClick), for: .touchUpInside)
         
+        
+        self.showLoadingView()
+        self.getData()
+        
+        self.tableView.mj_header = V2RefreshHeader(refreshingBlock: {[weak self] in
+            self?.getData()
+        })
+        self.tableView.mj_footer = V2RefreshFooter(refreshingBlock: {[weak self] in
+            self?.getNextPage()
+        })
+    }
+    
+    func getData(){
         //根据 topicId 获取 帖子信息 、回复。
         TopicDetailModel.getTopicDetailById(self.topicId){
             (response:V2ValueResponse<(TopicDetailModel?,[TopicCommentModel])>) -> Void in
@@ -61,183 +81,428 @@ class TopicDetailViewController: BaseViewController, UITableViewDelegate,UITable
                 
                 if let aModel = response.value!.0{
                     self.model = aModel
-                    self.tableView.fin_reloadData()
                 }
                 
                 self.commentsArray = response.value!.1
                 
-                self.tableView.fin_reloadData()
+                self.currentPage = 1
+                
+                //清除将帖子内容cell,因为这是个缓存，如果赋值后，就会cache到这个变量，之后直接读这个变量不重新赋值。
+                //这里刷新了，则可能需要更新帖子内容cell ,实际上只是重新调用了 cell.load(_:)方法
+                self.webViewContentCell = nil
+                
+                self.tableView.reloadData()
+                
             }
+            else{
+                V2Error("刷新失败");
+            }
+            if self.tableView.mj_header.isRefreshing(){
+                self.tableView.mj_header.endRefreshing()
+            }
+            self.tableView.mj_footer.resetNoMoreData()
             self.hideLoadingView()
         }
-        
-        self.showLoadingView()
     }
     
+    /**
+     点击右上角 more 按钮
+     */
     func rightClick(){
-        if let model = self.model {
-            let replyViewController = ReplyingViewController()
-            replyViewController.topicModel = model
-            let nav = V2EXNavigationController(rootViewController:replyViewController)
-            self.navigationController?.presentViewController(nav, animated: true, completion:nil)
+        if  self.model != nil {
+            let activityView = V2ActivityViewController()
+            activityView.dataSource = self
+            self.navigationController!.present(activityView, animated: true, completion: nil)
+            self.activityView = activityView
+        }
+    }
+    /**
+     点击节点
+     */
+    func nodeClick() {
+       let node = NodeModel()
+        node.nodeId = self.model?.node
+        node.nodeName = self.model?.nodeName
+        let controller = NodeTopicListViewController()
+        controller.node = node
+        self.navigationController?.pushViewController(controller, animated: true)
+    }
+    
+    /**
+     获取下一页评论，如果有的话
+     */
+    func getNextPage(){
+        if self.model == nil || self.commentsArray.count <= 0 {
+            self.endRefreshingWithNoDataAtAll()
+            return;
+        }
+        self.currentPage += 1
+        
+        if self.model == nil || self.currentPage > self.model!.commentTotalPages {
+            self.endRefreshingWithNoMoreData()
+            return;
+        }
+        
+        TopicDetailModel.getTopicCommentsById(self.topicId, page: self.currentPage) { (response) -> Void in
+            if response.success {
+                self.commentsArray += response.value!
+                self.tableView.reloadData()
+                self.tableView.mj_footer.endRefreshing()
+                
+                if self.currentPage == self.model?.commentTotalPages {
+                    self.endRefreshingWithNoMoreData()
+                }
+            }
+            else{
+                self.currentPage -= 1
+            }
         }
     }
     
-    func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+    /**
+     禁用上拉加载更多，并显示一个字符串提醒
+     */
+    func endRefreshingWithStateString(_ string:String){
+        (self.tableView.mj_footer as! V2RefreshFooter).noMoreDataStateString = string
+        self.tableView.mj_footer.endRefreshingWithNoMoreData()
+    }
+
+    func endRefreshingWithNoDataAtAll() {
+        self.endRefreshingWithStateString("暂无评论")
+    }
+
+    func endRefreshingWithNoMoreData() {
+        self.endRefreshingWithStateString("没有更多评论了")
+    }
+}
+
+
+
+//MARK: - UITableView DataSource
+enum TopicDetailTableViewSection: Int {
+    case header = 0, comment, other
+}
+
+enum TopicDetailHeaderComponent: Int {
+    case title = 0,  webViewContent, other
+}
+
+extension TopicDetailViewController: UITableViewDelegate,UITableViewDataSource {
+    func numberOfSections(in tableView: UITableView) -> Int {
         return 2
     }
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        if section == 0 {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        let _section = TopicDetailTableViewSection(rawValue: section)!
+        switch _section {
+        case .header:
             if self.model != nil{
                 return 3
             }
             else{
                 return 0
             }
-        }
-        else if section == 1{
+        case .comment:
             return self.commentsArray.count;
-        }
-        else {
+        case .other:
             return 0;
         }
     }
-    func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
-        if indexPath.section == 0 {
-            
-            if indexPath.row == 0{
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        let _section = TopicDetailTableViewSection(rawValue: indexPath.section)!
+        var _headerComponent = TopicDetailHeaderComponent.other
+        if let headerComponent = TopicDetailHeaderComponent(rawValue: indexPath.row) {
+            _headerComponent = headerComponent
+        }
+        switch _section {
+        case .header:
+            switch _headerComponent {
+            case .title:
                 return tableView.fin_heightForCellWithIdentifier(TopicDetailHeaderCell.self, indexPath: indexPath) { (cell) -> Void in
                     cell.bind(self.model!);
                 }
-            }
-            
-            else if indexPath.row == 1 {
-                if let cell = self.webViewContentCell {
-                    return cell.contentHeight
+            case .webViewContent:
+                if let height =  self.webViewContentCell?.contentHeight , height > 0 {
+                    return self.webViewContentCell!.contentHeight
                 }
                 else {
                     return 1
                 }
-            }
-            
-            else if indexPath.row == 2 {
+            case .other:
                 return 45
             }
-            
-        }
-       
-        else {
+        case .comment:
             let layout = self.commentsArray[indexPath.row].textLayout!
-            return layout.textBoundingRect.size.height + 12 + 35 + 12 + 12
+            return layout.textBoundingRect.size.height + 12 + 35 + 12 + 12 + 1
+        case .other:
+            return 200
         }
-        
-        return 200 ;
     }
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        if indexPath.section == 0 {
-            if indexPath.row == 0{
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let _section = TopicDetailTableViewSection(rawValue: indexPath.section)!
+        var _headerComponent = TopicDetailHeaderComponent.other
+        if let headerComponent = TopicDetailHeaderComponent(rawValue: indexPath.row) {
+            _headerComponent = headerComponent
+        }
+
+        switch _section {
+        case .header:
+            switch _headerComponent {
+            case .title:
                 //帖子标题
                 let cell = getCell(tableView, cell: TopicDetailHeaderCell.self, indexPath: indexPath);
+                if(cell.nodeClickHandler == nil){
+                    cell.nodeClickHandler = {[weak self] () -> Void in
+                        self?.nodeClick()
+                    }
+                }
                 cell.bind(self.model!);
                 return cell;
-            }
-            else if indexPath.row == 1{
+            case .webViewContent:
                 //帖子内容
                 if self.webViewContentCell == nil {
                     self.webViewContentCell = getCell(tableView, cell: TopicDetailWebViewContentCell.self, indexPath: indexPath);
+                    self.webViewContentCell?.parentScrollView = self.tableView
                 }
                 else {
                     return self.webViewContentCell!
                 }
                 self.webViewContentCell!.load(self.model!);
-                self.webViewContentCell!.contentHeightChanged = { [weak self] (height:CGFloat) -> Void  in
-                    if let weakSelf = self {
-                        //在cell显示在屏幕时更新，否则会崩溃会崩溃会崩溃
-                        if weakSelf.tableView.visibleCells.contains(weakSelf.webViewContentCell!) {
-                            if weakSelf.webViewContentCell?.contentHeight > 1.5 * SCREEN_HEIGHT{ //太长了就别动画了。。
-                                UIView.animateWithDuration(0, animations: { () -> Void in
+                if self.webViewContentCell!.contentHeightChanged == nil {
+                    self.webViewContentCell!.contentHeightChanged = { [weak self] (height:CGFloat) -> Void  in
+                        if let weakSelf = self {
+                            //在cell显示在屏幕时更新，否则会崩溃会崩溃会崩溃
+                            //另外刷新清空旧cell,重新创建这个cell ,所以 contentHeightChanged 需要判断cell是否为nil
+                            if let cell = weakSelf.webViewContentCell, weakSelf.tableView.visibleCells.contains(cell) {
+                                if let height = weakSelf.webViewContentCell?.contentHeight, height > 1.5 * SCREEN_HEIGHT{ //太长了就别动画了。。
+                                    UIView.animate(withDuration: 0, animations: { () -> Void in
+                                        self?.tableView.beginUpdates()
+                                        self?.tableView.endUpdates()
+                                    })
+                                }
+                                else {
                                     self?.tableView.beginUpdates()
                                     self?.tableView.endUpdates()
-                                })
-                            }
-                            else {
-                                self?.tableView.beginUpdates()
-                                self?.tableView.endUpdates()
+                                }
                             }
                         }
                     }
                 }
                 return self.webViewContentCell!
-            }
-            
-            else if indexPath.row == 2 {
+            case .other:
                 let cell = getCell(tableView, cell: BaseDetailTableViewCell.self, indexPath: indexPath)
                 cell.detailMarkHidden = true
-                cell.titleLabel?.text = self.model?.topicCommentTotalCount
-                cell.titleLabel?.font = v2Font(12)
-                cell.separator?.image = createImageWithColor(self.view.backgroundColor!)
+                cell.titleLabel.text = self.model?.topicCommentTotalCount
+                cell.titleLabel.font = v2Font(12)
+                cell.backgroundColor = V2EXColor.colors.v2_CellWhiteBackgroundColor
+                cell.separator.image = createImageWithColor(self.view.backgroundColor!)
                 return cell
             }
-        }
-            
-        else if indexPath.section == 1{
-            //帖子评论
+        case .comment:
             let cell = getCell(tableView, cell: TopicDetailCommentCell.self, indexPath: indexPath)
             cell.bind(self.commentsArray[indexPath.row])
             return cell
+        case .other:
+            return UITableViewCell();
         }
-        return UITableViewCell();
     }
     
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         if indexPath.section == 1 {
-            let actionSheet = UIActionSheet(title: nil, delegate: self, cancelButtonTitle: "取消", destructiveButtonTitle: nil, otherButtonTitles: "回复", "感谢")
-            actionSheet.tag = indexPath.row
-            actionSheet.showInView(self.view)
+            self.selectedRowWithActionSheet(indexPath)
         }
     }
-    
-    func actionSheet(actionSheet: UIActionSheet, clickedButtonAtIndex buttonIndex: Int) {
+}
+
+
+
+
+//MARK: - actionSheet
+extension TopicDetailViewController: UIActionSheetDelegate {
+    func selectedRowWithActionSheet(_ indexPath:IndexPath){
+        self.tableView.deselectRow(at: indexPath, animated: true);
+
+        //这段代码也可以执行，但是当点击时，会有个0.3秒的dismiss动画。
+        //然后再弹出回复页面或者查看对话页面。感觉太长了，暂时不用
+//        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .ActionSheet)
+//        let replyAction = UIAlertAction(title: "回复", style: .Default) { _ in
+//            self.replyComment(indexPath.row)
+//        }
+//        let thankAction = UIAlertAction(title: "感谢", style: .Default) { _ in
+//            self.thankComment(indexPath.row)
+//        }
+//        let relevantCommentsAction = UIAlertAction(title: "查看对话", style: .Default) { _ in
+//            self.relevantComment(indexPath.row)
+//        }
+//        let cancelAction = UIAlertAction(title: "取消", style: .Cancel, handler: nil)
+//        //将action全加进actionSheet
+//        [replyAction,thankAction,relevantCommentsAction,cancelAction].forEach { (action) -> () in
+//            actionSheet.addAction(action)
+//        }
+//        self.navigationController?.presentViewController(actionSheet, animated: true, completion: nil)
         
-        tableView .deselectRowAtIndexPath(NSIndexPath(forRow: actionSheet.tag, inSection: 1), animated: true);
-        switch buttonIndex {
-        case 1 : //回复
-            let item = self.commentsArray[actionSheet.tag]
+        //这段代码在iOS8.3中弃用，但是现在还可以使用，先用着吧
+        let actionSheet = UIActionSheet(title: nil, delegate: self, cancelButtonTitle: "取消", destructiveButtonTitle: nil, otherButtonTitles: "回复", "感谢" ,"查看对话")
+        actionSheet.tag = indexPath.row
+        actionSheet.show(in: self.view)
+        
+    }
+    func actionSheet(_ actionSheet: UIActionSheet, clickedButtonAt buttonIndex: Int) {
+        if buttonIndex > 0 && buttonIndex <= 3 {
+            self.perform([#selector(TopicDetailViewController.replyComment(_:)),#selector(TopicDetailViewController.thankComment(_:)),#selector(TopicDetailViewController.relevantComment(_:))][buttonIndex - 1], with: actionSheet.tag)
+        }
+    }
+    func replyComment(_ row:NSNumber){
+        V2User.sharedInstance.ensureLoginWithHandler {
+            let item = self.commentsArray[row as Int]
             let replyViewController = ReplyingViewController()
             replyViewController.atSomeone = "@" + item.userName! + " "
             replyViewController.topicModel = self.model!
             let nav = V2EXNavigationController(rootViewController:replyViewController)
-            self.navigationController?.presentViewController(nav, animated: true, completion:nil)
-            
-        case 2://感谢
-            let row = actionSheet.tag
-            let item = self.commentsArray[row]
-            if item.replyId == nil {
-                SVProgressHUD.showErrorWithStatus("回复replyId为空")
-                return;
+            self.navigationController?.present(nav, animated: true, completion:nil)
+        }
+    }
+    func thankComment(_ row:NSNumber){
+        guard V2User.sharedInstance.isLogin else {
+            V2Inform("请先登录")
+            return;
+        }
+        let item = self.commentsArray[row as Int]
+        if item.replyId == nil {
+            V2Error("回复replyId为空")
+            return;
+        }
+        if self.model?.token == nil {
+            V2Error("帖子token为空")
+            return;
+        }
+        item.favorites += 1
+        self.tableView.reloadRows(at: [IndexPath(row: row as Int, section: 1)], with: .none)
+        
+        TopicCommentModel.replyThankWithReplyId(item.replyId!, token: self.model!.token!) {
+            [weak item, weak self](response) in
+            if response.success {
             }
-            if self.model?.token == nil {
-                SVProgressHUD.showErrorWithStatus("帖子token为空")
-                return;
+            else{
+                V2Error("感谢失败了")
+                //失败后 取消增加的数量
+                item?.favorites -= 1
+                self?.tableView.reloadRows(at: [IndexPath(row: row as Int, section: 1)], with: .none)
             }
-            item.favorites++
-            self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 1)], withRowAnimation: .None)
-            
-            TopicCommentModel.replyThankWithReplyId(item.replyId!, token: self.model!.token!) {
-                [weak item, weak self](response) in
-                if response.success {
-                }
-                else{
-                    SVProgressHUD.showSuccessWithStatus("感谢失败了")
-                    //失败后 取消增加的数量
-                    item?.favorites--
-                    self?.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 1)], withRowAnimation: .None)
-                }
+        }
+    }
+    func relevantComment(_ row:NSNumber){
+        let item = self.commentsArray[row as Int]
+        let relevantComments = TopicCommentModel.getRelevantCommentsInArray(self.commentsArray, firstComment: item)
+        if relevantComments.count <= 0 {
+            return;
+        }
+        let controller = RelevantCommentsNav(comments: relevantComments)
+        self.present(controller, animated: true, completion: nil)
+    }
+}
+
+
+
+//MARK: - V2ActivityView
+enum V2ActivityViewTopicDetailAction : Int {
+    case block = 0, favorite, grade, explore
+}
+
+extension TopicDetailViewController: V2ActivityViewDataSource {
+    func V2ActivityView(_ activityView: V2ActivityViewController, numberOfCellsInSection section: Int) -> Int {
+        return 4
+    }
+    func V2ActivityView(_ activityView: V2ActivityViewController, ActivityAtIndexPath indexPath: IndexPath) -> V2Activity {
+        return V2Activity(title: [
+            NSLocalizedString("ignore"),
+            NSLocalizedString("favorite"),
+            NSLocalizedString("thank"),
+            "Safari"][indexPath.row], image: UIImage(named: ["ic_block_48pt","ic_grade_48pt","ic_favorite_48pt","ic_explore_48pt"][indexPath.row])!)
+    }
+    func V2ActivityView(_ activityView:V2ActivityViewController ,heightForFooterInSection section: Int) -> CGFloat{
+        return 45
+    }
+    func V2ActivityView(_ activityView:V2ActivityViewController ,viewForFooterInSection section: Int) ->UIView?{
+        let view = UIView()
+        view.backgroundColor = V2EXColor.colors.v2_ButtonBackgroundColor
+        
+        let label = UILabel()
+        label.font = v2Font(18)
+        label.text = NSLocalizedString("reply2")
+        label.textAlignment = .center
+        label.textColor = UIColor.white
+        view.addSubview(label)
+        label.snp.makeConstraints{ (make) -> Void in
+            make.top.right.bottom.left.equalTo(view)
+        }
+        
+        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(TopicDetailViewController.reply)))
+        
+        return view
+    }
+    
+    func V2ActivityView(_ activityView: V2ActivityViewController, didSelectRowAtIndexPath indexPath: IndexPath) {
+        activityView.dismiss()
+        let action = V2ActivityViewTopicDetailAction(rawValue: indexPath.row)!
+        
+        guard V2User.sharedInstance.isLogin
+            // 用safari打开是不用登录的
+            || action == V2ActivityViewTopicDetailAction.explore else {
+            V2Inform("请先登录")
+            return;
+        }
+        switch action {
+        case .block:
+            V2BeginLoading()
+            if let topicId = self.model?.topicId  {
+                TopicDetailModel.ignoreTopicWithTopicId(topicId, completionHandler: {[weak self] (response) -> Void in
+                    if response.success {
+                        V2Success("忽略成功")
+                        self?.navigationController?.popViewController(animated: true)
+                        self?.ignoreTopicHandler?(topicId)
+                    }
+                    else{
+                        V2Error("忽略失败")
+                    }
+                    })
             }
-        default :
-            break
+        case .favorite:
+            V2BeginLoading()
+            if let topicId = self.model?.topicId ,let token = self.model?.token {
+                TopicDetailModel.favoriteTopicWithTopicId(topicId, token: token, completionHandler: { (response) -> Void in
+                    if response.success {
+                        V2Success("收藏成功")
+                    }
+                    else{
+                        V2Error("收藏失败")
+                    }
+                })
+            }
+        case .grade:
+            V2BeginLoading()
+            if let topicId = self.model?.topicId ,let token = self.model?.token {
+                TopicDetailModel.topicThankWithTopicId(topicId, token: token, completionHandler: { (response) -> Void in
+                    if response.success {
+                        V2Success("成功送了一波铜币")
+                    }
+                    else{
+                        V2Error("没感谢成功，再试一下吧")
+                    }
+                })
+            }
+        case .explore:
+            UIApplication.shared.openURL(URL(string: V2EXURL + "t/" + self.model!.topicId!)!)
         }
     }
     
+    func reply(){
+        self.activityView?.dismiss()
+        V2User.sharedInstance.ensureLoginWithHandler {
+            let replyViewController = ReplyingViewController()
+            replyViewController.topicModel = self.model!
+            let nav = V2EXNavigationController(rootViewController:replyViewController)
+            self.navigationController?.present(nav, animated: true, completion:nil)
+        }
+    }
     
 }
