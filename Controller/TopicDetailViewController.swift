@@ -24,6 +24,7 @@ class TopicDetailViewController: BaseViewController{
                 return _tableView!;
             }
             _tableView = UITableView();
+            _tableView.cancelEstimatedHeight()
             _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
             _tableView.backgroundColor = V2EXColor.colors.v2_backgroundColor
@@ -95,9 +96,9 @@ class TopicDetailViewController: BaseViewController{
                 
             }
             else{
-                V2Error("刷新失败");
+                V2Error(response.message);
             }
-            if self.tableView.mj_header.isRefreshing(){
+            if self.tableView.mj_header.isRefreshing{
                 self.tableView.mj_header.endRefreshing()
             }
             self.tableView.mj_footer.resetNoMoreData()
@@ -108,7 +109,7 @@ class TopicDetailViewController: BaseViewController{
     /**
      点击右上角 more 按钮
      */
-    func rightClick(){
+    @objc func rightClick(){
         if  self.model != nil {
             let activityView = V2ActivityViewController()
             activityView.dataSource = self
@@ -232,7 +233,7 @@ extension TopicDetailViewController: UITableViewDelegate,UITableViewDataSource {
             }
         case .comment:
             let layout = self.commentsArray[indexPath.row].textLayout!
-            return layout.textBoundingRect.size.height + 12 + 35 + 12 + 12 + 1
+            return layout.textBoundingRect.size.height + 1 + 12 + 35 + 12 + 12 + 1
         case .other:
             return 200
         }
@@ -347,13 +348,17 @@ extension TopicDetailViewController: UIActionSheetDelegate {
         
     }
     func actionSheet(_ actionSheet: UIActionSheet, clickedButtonAt buttonIndex: Int) {
-        if buttonIndex > 0 && buttonIndex <= 3 {
-            self.perform([#selector(TopicDetailViewController.replyComment(_:)),#selector(TopicDetailViewController.thankComment(_:)),#selector(TopicDetailViewController.relevantComment(_:))][buttonIndex - 1], with: actionSheet.tag)
+        guard buttonIndex > 0 && buttonIndex <= 3 else{
+            return
         }
+        self.perform([#selector(TopicDetailViewController.replyComment(_:)),
+                      #selector(TopicDetailViewController.thankComment(_:)),
+                      #selector(TopicDetailViewController.relevantComment(_:))][buttonIndex - 1],
+                     with: actionSheet.tag)
     }
-    func replyComment(_ row:NSNumber){
+    @objc func replyComment(_ row:NSNumber){
         V2User.sharedInstance.ensureLoginWithHandler {
-            let item = self.commentsArray[row as Int]
+            let item = self.commentsArray[row as! Int]
             let replyViewController = ReplyingViewController()
             replyViewController.atSomeone = "@" + item.userName! + " "
             replyViewController.topicModel = self.model!
@@ -361,12 +366,12 @@ extension TopicDetailViewController: UIActionSheetDelegate {
             self.navigationController?.present(nav, animated: true, completion:nil)
         }
     }
-    func thankComment(_ row:NSNumber){
+    @objc func thankComment(_ row:NSNumber){
         guard V2User.sharedInstance.isLogin else {
             V2Inform("请先登录")
             return;
         }
-        let item = self.commentsArray[row as Int]
+        let item = self.commentsArray[row as! Int]
         if item.replyId == nil {
             V2Error("回复replyId为空")
             return;
@@ -376,7 +381,7 @@ extension TopicDetailViewController: UIActionSheetDelegate {
             return;
         }
         item.favorites += 1
-        self.tableView.reloadRows(at: [IndexPath(row: row as Int, section: 1)], with: .none)
+        self.tableView.reloadRows(at: [IndexPath(row: row as! Int, section: 1)], with: .none)
         
         TopicCommentModel.replyThankWithReplyId(item.replyId!, token: self.model!.token!) {
             [weak item, weak self](response) in
@@ -386,12 +391,12 @@ extension TopicDetailViewController: UIActionSheetDelegate {
                 V2Error("感谢失败了")
                 //失败后 取消增加的数量
                 item?.favorites -= 1
-                self?.tableView.reloadRows(at: [IndexPath(row: row as Int, section: 1)], with: .none)
+                self?.tableView.reloadRows(at: [IndexPath(row: row as! Int, section: 1)], with: .none)
             }
         }
     }
-    func relevantComment(_ row:NSNumber){
-        let item = self.commentsArray[row as Int]
+    @objc func relevantComment(_ row:NSNumber){
+        let item = self.commentsArray[row as! Int]
         let relevantComments = TopicCommentModel.getRelevantCommentsInArray(self.commentsArray, firstComment: item)
         if relevantComments.count <= 0 {
             return;
@@ -405,19 +410,20 @@ extension TopicDetailViewController: UIActionSheetDelegate {
 
 //MARK: - V2ActivityView
 enum V2ActivityViewTopicDetailAction : Int {
-    case block = 0, favorite, grade, explore
+    case block = 0, favorite, grade, share, explore
 }
 
 extension TopicDetailViewController: V2ActivityViewDataSource {
     func V2ActivityView(_ activityView: V2ActivityViewController, numberOfCellsInSection section: Int) -> Int {
-        return 4
+        return 5
     }
     func V2ActivityView(_ activityView: V2ActivityViewController, ActivityAtIndexPath indexPath: IndexPath) -> V2Activity {
         return V2Activity(title: [
             NSLocalizedString("ignore"),
             NSLocalizedString("favorite"),
             NSLocalizedString("thank"),
-            "Safari"][indexPath.row], image: UIImage(named: ["ic_block_48pt","ic_grade_48pt","ic_favorite_48pt","ic_explore_48pt"][indexPath.row])!)
+            NSLocalizedString("share"),
+            "Safari"][indexPath.row], image: UIImage(named: ["ic_block_48pt","ic_grade_48pt","ic_favorite_48pt","ic_share_48pt","ic_explore_48pt"][indexPath.row])!)
     }
     func V2ActivityView(_ activityView:V2ActivityViewController ,heightForFooterInSection section: Int) -> CGFloat{
         return 45
@@ -447,7 +453,8 @@ extension TopicDetailViewController: V2ActivityViewDataSource {
         
         guard V2User.sharedInstance.isLogin
             // 用safari打开是不用登录的
-            || action == V2ActivityViewTopicDetailAction.explore else {
+            || action == V2ActivityViewTopicDetailAction.explore
+            || action == V2ActivityViewTopicDetailAction.share else {
             V2Inform("请先登录")
             return;
         }
@@ -490,12 +497,17 @@ extension TopicDetailViewController: V2ActivityViewDataSource {
                     }
                 })
             }
+        case .share:
+            let shareUrl = NSURL.init(string: V2EXURL + "t/" + self.model!.topicId!)
+            let shareArr:NSArray = [shareUrl!]
+            let activityController = UIActivityViewController.init(activityItems: shareArr as [AnyObject], applicationActivities: nil)
+            self.present(activityController, animated: true, completion: nil)
         case .explore:
             UIApplication.shared.openURL(URL(string: V2EXURL + "t/" + self.model!.topicId!)!)
         }
     }
     
-    func reply(){
+    @objc func reply(){
         self.activityView?.dismiss()
         V2User.sharedInstance.ensureLoginWithHandler {
             let replyViewController = ReplyingViewController()

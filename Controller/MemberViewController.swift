@@ -8,6 +8,7 @@
 
 import UIKit
 import FXBlurView
+import DeviceKit
 
 class MemberViewController: UIViewController,UITableViewDelegate,UITableViewDataSource ,UIScrollViewDelegate {
     var color:CGFloat = 0
@@ -16,6 +17,25 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
     var blockButton:UIButton?
     var followButton:UIButton?
     var model:MemberModel?
+    
+    
+    var headerHeight: CGFloat = {
+        let device = Device()
+        if device.isOneOf([.iPhoneX, Device.simulator(.iPhoneX)]) {
+            return 240 + 24
+        }
+        return 240
+    }()
+    
+    //昵称相对于整个屏幕时的 y 值
+    var nickLabelTop: CGFloat = {
+        let device = Device()
+        if device.isOneOf([.iPhoneX, Device.simulator(.iPhoneX)]) {
+            return 156 + 24/2
+        }
+        return 156
+    }()
+    
     
     var backgroundImageView:UIImageView?
     fileprivate var _tableView :UITableView!
@@ -29,6 +49,9 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
             _tableView.estimatedRowHeight=200;
             _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
+            if #available(iOS 11.0, *) {
+                _tableView.contentInsetAdjustmentBehavior = .never
+            }
             regClass(_tableView, cell: MemberHeaderCell.self)
             regClass(_tableView, cell: MemberTopicCell.self)
             regClass(_tableView, cell: MemberReplyCell.self)
@@ -68,7 +91,7 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
             make.top.right.bottom.left.equalTo(self.view);
         }
         
-        self.titleView = UIView(frame: CGRect(x: 0, y: 0, width: SCREEN_WIDTH, height: 64))
+        self.titleView = UIView(frame: CGRect(x: 0, y: 0, width: 150, height: 44))
         self.navigationItem.titleView = self.titleView!
         
         
@@ -76,7 +99,7 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
         self.view.addSubview(aloadView)
         aloadView.startAnimating()
         aloadView.snp.makeConstraints{ (make) -> Void in
-            make.centerY.equalTo(self.view.snp.top).offset(20+44/2)
+            make.centerY.equalTo(self.view.snp.top).offset( (NavigationBarHeight - 44 ) + 44 / 2 )
             make.right.equalTo(self.view).offset(-15)
         }
         self._loadView = aloadView
@@ -106,13 +129,15 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
     override func viewDidAppear(_ animated: Bool) {
         
         if self.titleLabel == nil {
-            let frame = self.titleView!.frame
-
-            let coverView = UIView(frame: CGRect(x: frame.origin.x * -1, y: frame.origin.y * -1 - 20, width: SCREEN_WIDTH, height: 64))
+            var frame = self.titleView!.frame
+            frame.origin.x = (frame.size.width - SCREEN_WIDTH)/2
+            frame.size.width = SCREEN_WIDTH
+            
+            let coverView = UIView(frame: frame)
             coverView.clipsToBounds = true
             self.titleView!.addSubview(coverView)
             
-            self.titleLabel = UILabel(frame: CGRect(x: 0, y: 64, width: SCREEN_WIDTH, height: 64))
+            self.titleLabel = UILabel(frame: CGRect(x: 0, y: 44, width: SCREEN_WIDTH, height: 44))
             self.titleLabel!.text = self.model != nil ? self.model!.userName! : "Hello"
             self.titleLabel!.font = v2Font(16)
             self.titleLabel!.textAlignment = .center
@@ -152,7 +177,7 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
    
 // MARK: - UIScrollViewDelegate
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let offsetY = scrollView.contentOffset.y
+        var offsetY = scrollView.contentOffset.y
         
         //navigationBar 的透明度
         self.changeNavigationAlpha()
@@ -161,17 +186,28 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
         self.changeNavigationBarTintColor()
         
         //navigationBar title 显示
+        let navigationBarHeight = NavigationBarHeight
+        
+        //昵称距离NavigationBar 底部的距离
+        let nickLabelDistanceToNavigationBarBottom = nickLabelTop - navigationBarHeight
+
+        //因为titleLabel的高度是44 ，文字是居中的，而Header里的昵称不是相同高度，所以需要增加一点高度弥补一下 （不要问我怎么得来的，玄学数字
+        offsetY += (44-13)/2
+        
         var y:CGFloat = 0
-        if offsetY <= 92 {
+        if offsetY <= nickLabelDistanceToNavigationBarBottom {
+            y = 44
+        }
+        else if offsetY >= nickLabelDistanceToNavigationBarBottom + 44 {
             y = 0
         }
-        else if offsetY >= 122 {
-            y = 30
-        }
         else {
-            y = offsetY - 92
+            y = 44 - (offsetY - nickLabelDistanceToNavigationBarBottom)
         }
-        self.titleLabel?.center = CGPoint(x: SCREEN_WIDTH/2, y: 64 - y + 6.5)
+        
+        var frame = self.titleLabel!.frame
+        frame.origin.y = y
+        self.titleLabel?.frame = frame
     }
     
     func changeNavigationAlpha(){
@@ -208,7 +244,7 @@ class MemberViewController: UIViewController,UITableViewDelegate,UITableViewData
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         if indexPath.section == 0 {
-            return 240
+            return headerHeight
         }
         else if indexPath.section == 1 {
             return tableView.fin_heightForCellWithIdentifier(MemberTopicCell.self, indexPath: indexPath) { (cell) -> Void in
@@ -315,7 +351,7 @@ extension MemberViewController{
         self.followButton?.setImage(followImage.withRenderingMode(.alwaysTemplate), for: UIControlState())
     }
     
-    func toggleFollowState(){
+    @objc func toggleFollowState(){
         if(self.model?.followState == .followed){
             UnFollow()
         }
@@ -339,7 +375,7 @@ extension MemberViewController{
         }
     }
     
-    func toggleBlockState(){
+    @objc func toggleBlockState(){
         if(self.model?.blockState == .blocked){
             UnBlock()
         }
@@ -349,14 +385,14 @@ extension MemberViewController{
         refreshButtonImage()
     }
     func Block() {
-        if let userId = self.model!.userId, let userToken = self.model!.userToken {
+        if let userId = self.model!.userId, let userToken = self.model!.blockToken {
         MemberModel.block(userId, userToken: userToken, type: .blocked, completionHandler: nil)
         self.model?.blockState = .blocked
         V2Success("屏蔽成功")
         }
     }
     func UnBlock() {
-        if let userId = self.model!.userId, let userToken = self.model!.userToken {
+        if let userId = self.model!.userId, let userToken = self.model!.blockToken {
             MemberModel.block(userId, userToken: userToken, type: .unBlocked, completionHandler: nil)
             self.model?.blockState = .unBlocked
             V2Success("取消屏蔽了~")

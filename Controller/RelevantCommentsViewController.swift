@@ -62,8 +62,11 @@ class RelevantCommentsViewController: UIViewController, UITableViewDelegate,UITa
                 return _tableView!;
             }
             _tableView = UITableView();
+            _tableView.cancelEstimatedHeight()
             _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
-            
+            if #available(iOS 11.0, *) {
+                _tableView.contentInsetAdjustmentBehavior = .never
+            }
             _tableView.backgroundColor = UIColor.clear
             _tableView.contentInset = UIEdgeInsetsMake(64, 0, 0, 0)
             regClass(_tableView, cell: TopicDetailCommentCell.self)
@@ -106,8 +109,11 @@ class RelevantCommentsViewController: UIViewController, UITableViewDelegate,UITa
         label.textAlignment = .center
         label.backgroundColor = UIColor.clear
         shimmeringView.contentView = label
-        shimmeringView.frame = CGRect( x: (SCREEN_WIDTH-80) / 2 , y: 15, width: 80, height: 44)
-
+        var y:CGFloat = 15
+        if UIDevice.current.isIphoneX {
+            y = 24
+        }
+        shimmeringView.frame = CGRect( x: (SCREEN_WIDTH-80) / 2 , y: y, width: 80, height: 44)
         
         self.view.addSubview(self.tableView);
         self.tableView.snp.remakeConstraints{ (make) -> Void in
@@ -116,6 +122,7 @@ class RelevantCommentsViewController: UIViewController, UITableViewDelegate,UITa
             make.top.equalTo(self.view.snp.bottom)
         }
         
+        self.tableView.v2_scrollToBottom()
     }
     override func viewDidAppear(_ animated: Bool) {
         self.tableView.snp.remakeConstraints{ (make) -> Void in

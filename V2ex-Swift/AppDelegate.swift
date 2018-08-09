@@ -32,7 +32,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let rightViewController = RightViewController();
         let drawerController = DrawerController(centerViewController: centerNav, leftDrawerViewController: leftViewController, rightDrawerViewController: rightViewController);
         
-        self.window?.thmemChangedHandler = {[weak self] (style) -> Void in
+        self.window?.themeChangedHandler = {[weak self] (style) -> Void in
             self?.window?.backgroundColor = V2EXColor.colors.v2_backgroundColor;
             drawerController.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
         }
@@ -55,6 +55,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         SVProgressHUD.setForegroundColor(UIColor(white: 1, alpha: 1))
         SVProgressHUD.setBackgroundColor(UIColor(white: 0.15, alpha: 0.85))
         SVProgressHUD.setDefaultMaskType(.none)
+        SVProgressHUD.setMinimumDismissTimeInterval(1.5)
+        SVProgressHUD.setContainerView(self.window!)
         
         /**
         DEBUG 模式下不统计任何信息，如果你需要使用Crashlytics ，请自行申请账号替换我的Key

@@ -84,7 +84,7 @@ class TopicDetailWebViewContentCell: UITableViewCell ,UIWebViewDelegate {
         self.tapGesture!.delegate = self
         self.contentWebView.addGestureRecognizer(self.tapGesture!);
     }
-    func tapHandler(_ tap :UITapGestureRecognizer){
+    @objc func tapHandler(_ tap :UITapGestureRecognizer){
         let tapPoint = tap.location(in: tap.view)
     
         let script = String(format: "getHTMLElementAtPoint(%i,%i)", Int(tapPoint.x),Int(tapPoint.y))
@@ -142,7 +142,7 @@ class TopicDetailWebViewContentCell: UITableViewCell ,UIWebViewDelegate {
             let style = "<style>" + V2Style.sharedInstance.CSS + "</style></head>"
             html =  HTMLHEADER + style  + html + "</html>"
             
-            self.contentWebView.loadHTMLString(html, baseURL: URL(string: "https://"))
+            self.contentWebView.loadHTMLString(html, baseURL: URL(string: "https://www.v2ex.com"))
 
             //这里有一个问题，
             

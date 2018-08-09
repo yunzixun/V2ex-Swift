@@ -51,8 +51,7 @@ class TopicListModel:NSObject {
                 id.replaceSubrange(range, with: "");
             }
             if let range = id.range(of: "#") {
-                id = id.substring(to: range.lowerBound)
-                topicIdUrl = id
+                topicIdUrl = String(id[..<range.lowerBound])
             }
         }
         self.topicId = topicIdUrl
@@ -90,8 +89,7 @@ class TopicListModel:NSObject {
                 id.replaceSubrange(range, with: "");
             }
             if let range = id.range(of: "#") {
-                id = id.substring(to: range.lowerBound)
-                topicIdUrl = id
+                topicIdUrl = String(id[..<range.lowerBound])
             }
         }
         self.topicId = topicIdUrl
@@ -127,17 +125,15 @@ class TopicListModel:NSObject {
                 id.replaceSubrange(range, with: "");
             }
             if let range = id.range(of: "#") {
-                id = id.substring(to: range.lowerBound)
-                topicIdUrl = id
+                topicIdUrl = String(id[..<range.lowerBound])
             }
         }
         self.topicId = topicIdUrl
 
 
         self.hits = nodeRootNode.xPath("./table/tr/td[3]/span[last()]/text()").first?.content
-        if var hits = self.hits {
-            hits = hits.substring(from: hits.index(hits.startIndex, offsetBy: 5))
-            self.hits = hits
+        if let hits = self.hits {
+            self.hits = String(hits[hits.index(hits.startIndex, offsetBy: 5)...])
         }
         var replies:String? = nil;
         if let reply = nodeRootNode.xPath("./table/tr/td[4]/a[1]").first {
@@ -150,13 +146,13 @@ class TopicListModel:NSObject {
         if let title = self.topicTitle {
             self.topicTitleAttributedString = NSMutableAttributedString(string: title,
                 attributes: [
-                    NSFontAttributeName:v2Font(17),
-                    NSForegroundColorAttributeName:V2EXColor.colors.v2_TopicListTitleColor,
+                    NSAttributedStringKey.font:v2Font(17),
+                    NSAttributedStringKey.foregroundColor:V2EXColor.colors.v2_TopicListTitleColor,
                 ])
             self.topicTitleAttributedString?.yy_lineSpacing = 3
 
             //监听颜色配置文件变化，当有变化时，改变自身颜色
-            self.thmemChangedHandler = {[weak self] (style) -> Void in
+            self.themeChangedHandler = {[weak self] (style) -> Void in
                 if let str = self?.topicTitleAttributedString {
                     str.yy_color = V2EXColor.colors.v2_TopicListTitleColor
                     self?.topicTitleLayout = YYTextLayout(containerSize: CGSize(width: SCREEN_WIDTH-24, height: 9999), text: str)
@@ -195,6 +191,11 @@ extension TopicListModel {
         }
 
         Alamofire.request(url, parameters: params, headers: MOBILE_CLIENT_HEADERS).responseJiHtml { (response) -> Void in
+            if response.response?.url?.path == "/2fa" {
+                //需要两步验证
+                completionHandler(V2ValueResponse<[TopicListModel]>(value:[], success: false, code: .twoFA));
+                return
+            }
             var resultArray:[TopicListModel] = []
             if  let jiHtml = response.result.value{
                 if let aRootNode = jiHtml.xPath("//body/div[@id='Wrapper']/div[@class='content']/div[@class='box']/div[@class='cell item']"){

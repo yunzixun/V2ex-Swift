@@ -49,13 +49,15 @@ class V2EXNavigationController: UINavigationController {
         self.navigationBar.setBackgroundImage(createImageWithColor(UIColor.clear), for: .default)
 
         let maskingView = UIView()
+        
         maskingView.isUserInteractionEnabled = false
         maskingView.backgroundColor = UIColor(white: 0, alpha: 0.0);
         self.navigationBar.superview!.insertSubview(maskingView, belowSubview: self.navigationBar)
-        maskingView.snp.makeConstraints{ (make) -> Void in
-            make.left.bottom.right.equalTo(self.navigationBar)
-            make.top.equalTo(self.navigationBar).offset(-20);
-        }
+        maskingView.frame = CGRect(x: 0, y: 0, width: SCREEN_WIDTH, height: NavigationBarHeight)
+//        maskingView.snp.makeConstraints{ (make) -> Void in
+//            make.left.bottom.right.equalTo(self.navigationBar)
+//            make.top.equalTo(self.navigationBar).offset(-44);
+//        }
 
         self.frostedView.isUserInteractionEnabled = false
         self.frostedView.clipsToBounds = true
@@ -64,12 +66,12 @@ class V2EXNavigationController: UINavigationController {
             make.top.bottom.left.right.equalTo(maskingView);
         }
 
-        self.thmemChangedHandler = {[weak self] (style) -> Void in
+        self.themeChangedHandler = {[weak self] (style) -> Void in
             self?.navigationBar.tintColor = V2EXColor.colors.v2_navigationBarTintColor
             
             self?.navigationBar.titleTextAttributes = [
-                NSFontAttributeName : v2Font(18),
-                NSForegroundColorAttributeName : V2EXColor.colors.v2_TopicListTitleColor
+                NSAttributedStringKey.font : v2Font(18),
+                NSAttributedStringKey.foregroundColor : V2EXColor.colors.v2_TopicListTitleColor
             ]
             
             if V2EXColor.sharedInstance.style == V2EXColor.V2EXColorStyleDefault {

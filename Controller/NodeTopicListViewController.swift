@@ -16,8 +16,9 @@ class NodeTopicListViewController: BaseViewController ,UITableViewDataSource,UIT
         didSet{
             let startIndex = favoriteUrl?.range(of: "/", options: .backwards, range: nil, locale: nil)
             let endIndex = favoriteUrl?.range(of: "?")
-            nodeId = favoriteUrl?.substring(with: Range<String.Index>( startIndex!.upperBound ..< endIndex!.lowerBound ))
-            if let _ = nodeId , let favoriteUrl = favoriteUrl {
+            let nodeId = favoriteUrl?[Range<String.Index>(startIndex!.upperBound ..< endIndex!.lowerBound)]
+            if let nodeId = nodeId , let favoriteUrl = favoriteUrl {
+                self.nodeId = String(nodeId)
                 if favoriteUrl.hasPrefix("/favorite"){
                     favorited = false
                 }
@@ -39,6 +40,7 @@ class NodeTopicListViewController: BaseViewController ,UITableViewDataSource,UIT
                 return _tableView!;
             }
             _tableView = UITableView();
+            _tableView.cancelEstimatedHeight()
             _tableView.backgroundColor = V2EXColor.colors.v2_backgroundColor
             _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
@@ -83,7 +85,7 @@ class NodeTopicListViewController: BaseViewController ,UITableViewDataSource,UIT
         self.currentPage = 1
         
         //如果有上拉加载更多 正在执行，则取消它
-        if self.tableView.mj_footer.isRefreshing() {
+        if self.tableView.mj_footer.isRefreshing {
             self.tableView.mj_footer.endRefreshing()
         }
         
@@ -185,7 +187,7 @@ extension NodeTopicListViewController {
         self.followButton?.setImage(followImage.withRenderingMode(.alwaysTemplate), for: UIControlState())
     }
     
-    func toggleFavoriteState(){
+    @objc func toggleFavoriteState(){
         if(self.favorited == true){
             unFavorite()
         }

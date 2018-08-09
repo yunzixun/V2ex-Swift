@@ -37,7 +37,7 @@ class TwoFAViewController: UIViewController ,UITextFieldDelegate{
         self.codeTextField.becomeFirstResponder()
     }
 
-    func cancelClick (){
+    @objc func cancelClick (){
         V2User.sharedInstance.loginOut()
         self.dismiss(animated: true, completion: nil)
     }
@@ -60,7 +60,7 @@ class TwoFAViewController: UIViewController ,UITextFieldDelegate{
         }
     }
 
-    func applicationWillEnterForeground(){
+    @objc func applicationWillEnterForeground(){
         automaticFill()
     }
     
@@ -77,7 +77,7 @@ class TwoFAViewController: UIViewController ,UITextFieldDelegate{
         guard code.Lenght == 6 else {
             return false
         }
-        for c in code.characters {
+        for c in code {
             if c > "9" && c < "0" {
                 return false
             }

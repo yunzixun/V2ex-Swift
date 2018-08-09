@@ -61,15 +61,15 @@ class V2ActivityViewController: UIViewController ,UIViewControllerTransitioningD
         }
     }
     
-    var panel:UIToolbar = UIToolbar()
+    var panel:UIToolbar = CTToolBar()
     
     /**
      当前不考虑复用，每一行最多支持4个cell
      */
     func numberOfCellsInSection(_ section:Int) -> Int{
         if var cells = dataSource?.V2ActivityView(self, numberOfCellsInSection: section) {
-            if cells > 4 {
-                cells = 4
+            if cells > 5 {
+                cells = 5
             }
             return cells
         }
@@ -122,12 +122,12 @@ class V2ActivityViewController: UIViewController ,UIViewControllerTransitioningD
             make.left.top.right.bottom.equalTo(cancelPanel)
         }
 
-        cancelButton.addTarget(self, action: #selector(dismiss as (Void) -> Void), for: .touchUpInside)
+        cancelButton.addTarget(self, action: #selector(dismiss as () -> Void), for: .touchUpInside)
 
-        self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(dismiss as (Void) -> Void)))
+        self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(dismiss as () -> Void)))
     }
     
-    func dismiss(){
+    @objc func dismiss(){
         self.dismiss(animated: true, completion: nil)
     }
     
@@ -161,7 +161,7 @@ class V2ActivityViewController: UIViewController ,UIViewControllerTransitioningD
     fileprivate func setupSectionView(_ _section:Int) -> UIView {
         let sectionView = UIView()
 
-        let margin = (SCREEN_WIDTH-20 - 60 * 4 )/5.0
+        let margin = (SCREEN_WIDTH-20 - 60 * 5 )/6.0
         for i in 0..<self.numberOfCellsInSection(_section) {
             let cellView = self.setupCellView(i, currentSection: _section);
             sectionView.addSubview(cellView)
@@ -243,7 +243,7 @@ class V2ActivityViewController: UIViewController ,UIViewControllerTransitioningD
         return cellView
     }
     
-    func cellDidSelected(_ sender:V2ActivityButton){
+    @objc func cellDidSelected(_ sender:V2ActivityButton){
         dataSource?.V2ActivityView?(self, didSelectRowAtIndexPath: sender.indexPath!)
     }
     
@@ -307,6 +307,19 @@ class V2ActivityTransionDismiss:NSObject,UIViewControllerAnimatedTransitioning {
             }, completion: { (finished) -> Void in
                 transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
                 toVC?.view.isHidden = false
-        }) 
+        })
+    }
+}
+
+class CTToolBar: UIToolbar {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        //Fix iOS11 种 UIToolBar的子View 都不响应点击事件
+        for view in self.subviews {
+            print("\(NSStringFromClass(view.classForCoder))")
+            if NSStringFromClass(view.classForCoder) == "_UIToolbarContentView" {
+                view.isUserInteractionEnabled = false
+            }
+        }
     }
 }

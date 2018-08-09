@@ -17,7 +17,7 @@ class MoreViewController: UITableViewController {
         self.tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
         regClass(self.tableView, cell: BaseDetailTableViewCell.self)
         
-        self.thmemChangedHandler = {[weak self] (style) -> Void in
+        self.themeChangedHandler = {[weak self] (style) -> Void in
             self?.view.backgroundColor = V2EXColor.colors.v2_backgroundColor
             self?.tableView.reloadData()
         }
@@ -83,7 +83,7 @@ class MoreViewController: UITableViewController {
             UIApplication.shared.openURL(URL(string: str)!)
         }
         else if indexPath.row == 4 {
-            UIApplication.shared.openURL(URL(string: "http://finb.github.io/blog/2016/02/01/v2ex-ioske-hu-duan-bug-and-jian-yi/")!)
+            UIApplication.shared.openURL(URL(string: "https://day.app/2016/02/v2ex-ioske-hu-duan-bug-and-jian-yi/")!)
         }
         else if indexPath.row == 6 {
             UIApplication.shared.openURL(URL(string: "https://github.com/Finb/V2ex-Swift")!)

@@ -24,7 +24,7 @@ class V2CommentAttachmentImage:AnimatedImageView {
     /// 图片地址
     var imageURL:String?
     
-    weak var delegate : V2CommentAttachmentImageTapDelegate?
+    weak var attachmentDelegate : V2CommentAttachmentImageTapDelegate?
     
     init(){
         super.init(frame: CGRect(x: 0, y: 0, width: 80, height: 80))
@@ -65,7 +65,7 @@ class V2CommentAttachmentImage:AnimatedImageView {
         self.next?.touchesCancelled(touches, with: event)
     }
     func handleSingleTap(_ touch:UITouch){
-        self.delegate?.V2CommentAttachmentImageSingleTap(self)
+        self.attachmentDelegate?.V2CommentAttachmentImageSingleTap(self)
     }
 }
 
@@ -125,7 +125,7 @@ class TopicCommentModel: NSObject,BaseHtmlModelProtocol {
         for element in nodes {
             
             if element.name == "text" , let content = element.content{//普通文本
-                commentAttributedString.append(NSMutableAttributedString(string: content,attributes: [NSFontAttributeName:v2ScaleFont(14) , NSForegroundColorAttributeName:V2EXColor.colors.v2_TopicListTitleColor]))
+                commentAttributedString.append(NSMutableAttributedString(string: content,attributes: [NSAttributedStringKey.font:v2ScaleFont(14) , NSAttributedStringKey.foregroundColor:V2EXColor.colors.v2_TopicListTitleColor]))
                 commentAttributedString.yy_lineSpacing = 5
             }
                 
@@ -149,7 +149,7 @@ class TopicCommentModel: NSObject,BaseHtmlModelProtocol {
                     self.preformAttributedString(commentAttributedString, nodes: subNodes)
                 }
                 if content.Lenght > 0 {
-                    let attr = NSMutableAttributedString(string: content ,attributes: [NSFontAttributeName:v2ScaleFont(14)])
+                    let attr = NSMutableAttributedString(string: content ,attributes: [NSAttributedStringKey.font:v2ScaleFont(14)])
                     attr.yy_setTextHighlight(NSMakeRange(0, content.Lenght),
                                                   color: V2EXColor.colors.v2_LinkColor,
                                                   backgroundColor: UIColor(white: 0.95, alpha: 1),
@@ -164,9 +164,12 @@ class TopicCommentModel: NSObject,BaseHtmlModelProtocol {
                 }
             }
                 
+            else if element.name == "br" {
+                commentAttributedString.yy_appendString("\n")
+            }
                 
             else if let content = element.content{//其他
-                commentAttributedString.append(NSMutableAttributedString(string: content,attributes: [NSForegroundColorAttributeName:V2EXColor.colors.v2_TopicListTitleColor]))
+                commentAttributedString.append(NSMutableAttributedString(string: content,attributes: [NSAttributedStringKey.foregroundColor:V2EXColor.colors.v2_TopicListTitleColor]))
             }
         }
     }
@@ -241,13 +244,27 @@ extension TopicCommentModel {
         var relevantComments:[TopicCommentModel] = []
         
         var users = getUsersOfComment(firstComment)
+
+        //当前会话所有相关的用户（ B 回复 A， C 回复 B， D 回复 C， 查看D的对话时， D C B 为相关联用户）
+        var relateUsers:Set<String> = users
+        for comment in allCommentsArray {
+            //被回复人所@的人也加进对话，但是不递归获取所有关系链（可能获取到无意义的数据）
+            if let username = comment.userName, users.contains(username) {
+                let commentUsers = getUsersOfComment(comment)
+                relateUsers = relateUsers.union(commentUsers)
+            }
+            //只找到点击的位置，之后就不找了
+            if comment == firstComment {
+                break;
+            }
+        }
+        
         users.insert(firstComment.userName!)
         
         for comment in allCommentsArray {
-            
-            //判断评论中是否只@了其他用户，是的话则证明这条评论是和别人讲的，不属于当前对话
+            //判断评论中是否@的所有用户和会话相关联的用户无关，是的话则证明这条评论是和别人讲的，不属于当前对话
             let commentUsers = getUsersOfComment(comment)
-            let intersectUsers = commentUsers.intersection(users)
+            let intersectUsers = commentUsers.intersection(relateUsers)
             if commentUsers.count > 0 && intersectUsers.count <= 0 {
                 continue;
             }
@@ -271,7 +288,7 @@ extension TopicCommentModel {
         
         //获取到所有YYTextHighlight ，用以之后获取 这条评论@了多少用户
         var textHighlights:[YYTextHighlight] = []
-        comment.textAttributedString!.enumerateAttribute(YYTextHighlightAttributeName, in: NSMakeRange(0, comment.textAttributedString!.length), options: []) { (attribute, range, stop) -> Void in
+        comment.textAttributedString!.enumerateAttribute(NSAttributedStringKey(rawValue: YYTextHighlightAttributeName), in: NSMakeRange(0, comment.textAttributedString!.length), options: []) { (attribute, range, stop) -> Void in
             if let highlight = attribute as? YYTextHighlight {
                 textHighlights.append(highlight)
             }

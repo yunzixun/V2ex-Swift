@@ -30,7 +30,7 @@ class V2User: NSObject {
         }
     }
 
-    dynamic var username:String?
+    @objc dynamic var username:String?
 
     fileprivate var _once:String?
     //全局once字符串，用于用户各种操作，例如回帖 登录 。这些操作都需要用的once ，而且这个once是全局统一的
@@ -54,7 +54,7 @@ class V2User: NSObject {
     }
 
     /// 通知数量
-    dynamic var notificationCount:Int = 0
+    @objc dynamic var notificationCount:Int = 0
 
 
 
@@ -176,15 +176,10 @@ class V2User: NSObject {
 
     /**
      验证客户端登录状态
-
-     - returns: ture: 正常登录 ,false: 登录过期，没登录
      */
     func verifyLoginStatus() {
         Alamofire.request(V2EXURL + "new",  headers: MOBILE_CLIENT_HEADERS).responseString(encoding: nil) { (response) -> Void in
-            if response.request?.url?.absoluteString == response.response?.url?.absoluteString {
-                //登录正常
-            }
-            else{
+            if response.response?.url?.path == "/signin"{
                 //没有登录 ,注销客户端
                 dispatch_sync_safely_main_queue({ () -> () in
                     self.loginOut()

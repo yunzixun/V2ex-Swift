@@ -26,13 +26,6 @@ class RightViewController: UIViewController,UITableViewDelegate,UITableViewDataS
         rightNodeModel(nodeName: NSLocalizedString("members" ), nodeTab: "members"),
     ]
     var currentSelectedTabIndex = 0;
-    /**
-     第一次自动高亮的cell，
-     因为再次点击其他cell，这个cell并不会自动调用 setSelected 取消自身的选中状态
-     所以保存这个cell用于手动取消选中状态
-     我也不知道这是不是BUG，还是我用法不对。
-    */
-    var firstAutoHighLightCell:UITableViewCell?
     
     var backgroundImageView:UIImageView?
     var frostedView = FXBlurView()
@@ -47,7 +40,9 @@ class RightViewController: UIViewController,UITableViewDelegate,UITableViewDataS
             _tableView.backgroundColor = UIColor.clear
             _tableView.estimatedRowHeight=100;
             _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
-            
+            if #available(iOS 11.0, *) {
+                _tableView.contentInsetAdjustmentBehavior = .never
+            }
             regClass(self.tableView, cell: RightNodeTableViewCell.self)
             
             _tableView.delegate = self;
@@ -82,7 +77,7 @@ class RightViewController: UIViewController,UITableViewDelegate,UITableViewDataS
         self.tableView.snp.makeConstraints{ (make) -> Void in
             make.top.right.bottom.left.equalTo(self.view);
         }
-        self.thmemChangedHandler = {[weak self] (style) -> Void in
+        self.themeChangedHandler = {[weak self] (style) -> Void in
             if V2EXColor.sharedInstance.style == V2EXColor.V2EXColorStyleDefault {
                 self?.backgroundImageView?.image = UIImage(named: "32.jpg")
             }
@@ -94,8 +89,11 @@ class RightViewController: UIViewController,UITableViewDelegate,UITableViewDataS
         
         let rowHeight = self.tableView(self.tableView, heightForRowAt: IndexPath(row: 0, section: 0))
         let rowCount = self.tableView(self.tableView, numberOfRowsInSection: 0)
-        let paddingTop = (SCREEN_HEIGHT - CGFloat(rowCount) * rowHeight) / 2
-        self.tableView.tableHeaderView = UIView(frame: CGRect(x: 0, y: 0, width: SCREEN_WIDTH, height: paddingTop))
+        var paddingTop = (SCREEN_HEIGHT - CGFloat(rowCount) * rowHeight) / 2
+        if paddingTop <= 0 {
+            paddingTop = 20
+        }
+        self.tableView.contentInset = UIEdgeInsetsMake(paddingTop, 0, 0, 0)
     }
     func maximumRightDrawerWidth() -> CGFloat{
         // 调整RightView宽度
@@ -104,7 +102,7 @@ class RightViewController: UIViewController,UITableViewDelegate,UITableViewDataS
         for node in rightNodes {
             let size = node.nodeName!.boundingRect(with: CGSize(width: CGFloat(MAXFLOAT), height: CGFloat(MAXFLOAT)),
                                                    options: NSStringDrawingOptions.usesLineFragmentOrigin,
-                                                   attributes: ["NSFontAttributeName":cellFont!],
+                                                   attributes: [NSAttributedStringKey(rawValue: "NSFontAttributeName"):cellFont!],
                                                    context: nil)
             let width = size.width + 50
             if width > 100 {
@@ -122,29 +120,17 @@ class RightViewController: UIViewController,UITableViewDelegate,UITableViewDataS
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = getCell(tableView, cell: RightNodeTableViewCell.self, indexPath: indexPath);
         cell.nodeNameLabel.text = self.rightNodes[indexPath.row].nodeName
+        
+        if indexPath.row == self.currentSelectedTabIndex && cell.isSelected == false {
+            self.tableView.selectRow(at: indexPath, animated: false, scrollPosition: .middle)
+        }
         return cell ;
     }
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        if let highLightCell = self.firstAutoHighLightCell{
-            self.firstAutoHighLightCell = nil
-            if(indexPath.row != self.currentSelectedTabIndex){
-                highLightCell.setSelected(false, animated: false)
-            }
-        }
         let node = self.rightNodes[indexPath.row];
         V2Client.sharedInstance.centerViewController?.tab = node.nodeTab
         V2Client.sharedInstance.centerViewController?.refreshPage()
         V2Client.sharedInstance.drawerController?.closeDrawer(animated: true, completion: nil)
-    }
-
-    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        if indexPath.row == self.currentSelectedTabIndex && cell.isSelected == false {
-            if let highLightCell = self.firstAutoHighLightCell{
-                highLightCell.setSelected(false, animated: false)
-            }
-            self.firstAutoHighLightCell = cell;
-            cell.setSelected(true, animated: true)
-        }
     }
 }
 

@@ -24,7 +24,7 @@ class V2Style: NSObject {
     static let sharedInstance = V2Style()
     
     fileprivate var _fontScale:Float = 1.0
-    dynamic var fontScale:Float {
+    @objc dynamic var fontScale:Float {
         get{
             return _fontScale
         }
@@ -45,7 +45,7 @@ class V2Style: NSObject {
             self._fontScale = scale
         }
         //监听主题配色，切换相应的配色
-        self.thmemChangedHandler = {[weak self] (style) -> Void in
+        self.themeChangedHandler = {[weak self] (style) -> Void in
             self?.remakeCSS()
         }
         

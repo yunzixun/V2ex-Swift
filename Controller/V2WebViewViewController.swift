@@ -13,7 +13,16 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate ,V2Ac
     var webViewProgress: V2WebViewProgress?
     var webViewProgressView: V2WebViewProgressView?
     var webView:WKWebView?
-    var closeButton:UIButton?
+    var closeButton:UIButton = {
+        let button = UIButton(type: .custom)
+        button.setTitle("关闭", for: UIControlState())
+        button.contentHorizontalAlignment = .left
+        button.titleLabel?.font = v2Font(14)
+        button.isHidden = true
+        return button
+    }()
+    
+    let leftBarButtonsPanelView = UIView(frame: CGRect(x: 0, y: 0, width: 75, height: 44))
     
     fileprivate var url:String = ""
     init(url:String){
@@ -41,20 +50,14 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate ,V2Ac
         backbtn.contentHorizontalAlignment = .left
         
         backbtn.addTarget(self, action: #selector(V2WebViewViewController.back), for: .touchUpInside)
+
+        self.closeButton.frame = CGRect(x: 40, y: 0, width: 35, height: 44)
+        self.closeButton.setTitleColor(self.navigationController?.navigationBar.tintColor, for: UIControlState())
+        self.closeButton.addTarget(self, action: #selector(V2WebViewViewController.pop), for: .touchUpInside)
         
-        
-        self.closeButton = UIButton(type: .custom)
-        self.closeButton!.titleEdgeInsets = UIEdgeInsetsMake(0, -3, 0, 0)
-        self.closeButton!.frame = CGRect(x: 0, y: 0, width: 35, height: 44)
-        self.closeButton!.setTitle("关闭", for: UIControlState())
-        self.closeButton!.contentHorizontalAlignment = .left
-        self.closeButton!.setTitleColor(self.navigationController?.navigationBar.tintColor, for: UIControlState())
-        self.closeButton!.titleLabel?.font = v2Font(14)
-        self.closeButton!.isHidden = true
-        
-        self.closeButton!.addTarget(self, action: #selector(V2WebViewViewController.pop), for: .touchUpInside)
-        
-        self.navigationItem.leftBarButtonItems = [UIBarButtonItem(customView: backbtn),UIBarButtonItem(customView: self.closeButton!)]
+        leftBarButtonsPanelView.addSubview(backbtn)
+        leftBarButtonsPanelView.addSubview(self.closeButton)
+        self.navigationItem.leftBarButtonItems = [UIBarButtonItem(customView: leftBarButtonsPanelView)]
         
         let rightButton = UIButton(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
         rightButton.contentMode = .center
@@ -74,7 +77,7 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate ,V2Ac
             make.top.right.bottom.left.equalTo(self.view)
         }
         
-        self.webViewProgressView = V2WebViewProgressView(frame: CGRect(x: 0, y: 64, width: SCREEN_WIDTH, height: 2))
+        self.webViewProgressView = V2WebViewProgressView(frame: CGRect(x: 0, y: NavigationBarHeight, width: SCREEN_WIDTH, height: 2))
         self.view.addSubview(self.webViewProgressView!)
         
         if let URL = URL(string: self.url) {
@@ -99,7 +102,7 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate ,V2Ac
         self.title = self.webView?.title
     }
     
-    func back(){
+    @objc func back(){
         if self.webView!.canGoBack {
             self.webView!.goBack()
         }
@@ -107,16 +110,16 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate ,V2Ac
             _ = self.navigationController?.popViewController(animated: true)
         }
     }
-    func pop(){
+    @objc func pop(){
         _ = self.navigationController?.popViewController(animated: true)
     }
     
     func setCloseButtonHidden(_ hidden:Bool){
-        self.closeButton!.isHidden = hidden
+        self.closeButton.isHidden = hidden
         
-        var frame = self.closeButton!.frame
-        frame.size.width = hidden ? 0 : 35
-        self.closeButton!.frame = frame
+        var frame = self.leftBarButtonsPanelView.frame
+        frame.size.width = hidden ? 35 : 75
+        self.leftBarButtonsPanelView.frame = frame
     }
     
 
@@ -125,7 +128,7 @@ class V2WebViewViewController: UIViewController ,V2WebViewProgressDelegate ,V2Ac
     }
     
     //MARK: - V2ActivityView
-    func rightClick(){
+    @objc func rightClick(){
         let activityView = V2ActivityViewController()
         activityView.dataSource = self
         self.navigationController!.present(activityView, animated: true, completion: nil)

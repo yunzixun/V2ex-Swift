@@ -29,7 +29,7 @@ class HomeViewController: UIViewController {
                 return _tableView!;
             }
             _tableView = UITableView();
-
+            _tableView.cancelEstimatedHeight()
             _tableView.separatorStyle = UITableViewCellSeparatorStyle.none;
             
             regClass(_tableView, cell: HomeTopicListTableViewCell.self);
@@ -72,7 +72,7 @@ class HomeViewController: UIViewController {
         footer?.centerOffset = -4
         self.tableView.mj_footer = footer
         
-        self.thmemChangedHandler = {[weak self] (style) -> Void in
+        self.themeChangedHandler = {[weak self] (style) -> Void in
             self?.tableView.backgroundColor = V2EXColor.colors.v2_backgroundColor
         }
     }
@@ -91,10 +91,10 @@ class HomeViewController: UIViewController {
         rightButton.addTarget(self, action: #selector(HomeViewController.rightClick), for: .touchUpInside)
 
     }
-    func leftClick(){
+    @objc func leftClick(){
         V2Client.sharedInstance.drawerController?.toggleLeftDrawerSide(animated: true, completion: nil)
     }
-    func rightClick(){
+    @objc func rightClick(){
         V2Client.sharedInstance.drawerController?.toggleRightDrawerSide(animated: true, completion: nil)
     }
     
@@ -105,7 +105,7 @@ class HomeViewController: UIViewController {
     func refresh(){
         
         //如果有上拉加载更多 正在执行，则取消它
-        if self.tableView.mj_footer.isRefreshing() {
+        if self.tableView.mj_footer.isRefreshing {
             self.tableView.mj_footer.endRefreshing()
         }
         
@@ -132,6 +132,12 @@ class HomeViewController: UIViewController {
                 //重置page
                 self.currentPage = 0
                 
+            }
+            else {
+                switch response.code {
+                case .twoFA: V2Client.sharedInstance.centerViewController!.navigationController?.present(TwoFAViewController(), animated: true, completion: nil);
+                default:break;
+                }
             }
             self.tableView.mj_header.endRefreshing()
         }
@@ -162,7 +168,7 @@ class HomeViewController: UIViewController {
     }
     
     static var lastLeaveTime = Date()
-    func applicationWillEnterForeground(){
+    @objc func applicationWillEnterForeground(){
         //计算上次离开的时间与当前时间差
         //如果超过2分钟，则自动刷新本页面。
         let interval = -1 * HomeViewController.lastLeaveTime.timeIntervalSinceNow
@@ -170,7 +176,7 @@ class HomeViewController: UIViewController {
             self.tableView.mj_header.beginRefreshing()
         }
     }
-    func applicationDidEnterBackground(){
+    @objc func applicationDidEnterBackground(){
         HomeViewController.lastLeaveTime = Date()
     }
 }
@@ -213,7 +219,7 @@ extension HomeViewController:UITableViewDataSource,UITableViewDelegate {
         }
     }
     
-    func ignoreTopicHandler(_ topicId:String) {
+    @objc func ignoreTopicHandler(_ topicId:String) {
         let index = self.topicList?.index(where: {$0.topicId == topicId })
         if index == nil {
             return

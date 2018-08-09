@@ -102,7 +102,7 @@ class HomeTopicListTableViewCell: UITableViewCell {
         
         self.setupLayout()
 
-        self.thmemChangedHandler = {[weak self] (style) -> Void in
+        self.themeChangedHandler = {[weak self] (style) -> Void in
             if style == V2EXColor.V2EXColorStyleDefault {
                 self?.nodeBackgroundImageView.image = HomeTopicListTableViewCell.nodeBackgroundImage_Default
             }
@@ -184,7 +184,7 @@ class HomeTopicListTableViewCell: UITableViewCell {
         }
     }
     
-    func userNameTap(_ sender:UITapGestureRecognizer) {
+    @objc func userNameTap(_ sender:UITapGestureRecognizer) {
         if let _ = self.itemModel , let username = itemModel?.userName {
             let memberViewController = MemberViewController()
             memberViewController.username = username
